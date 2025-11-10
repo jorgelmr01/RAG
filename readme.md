@@ -19,7 +19,8 @@ citations.
 1. **Unzip or clone** the folder.
 2. **Double-click `start_app.pyw`.**
    - First run: creates `.venv`, upgrades `pip`, installs `requirements.txt`.
-   - Subsequent runs: skips the install step unless `requirements.txt` changes.
+   - Subsequent runs: skips the install step unless `requirements.txt` changes or
+     key packages (e.g. `gradio`) are missing.
 3. When the browser opens, enter your OpenAI API key in the Configuration panel
    (or create a `.env` file beforehand—see below).
 

@@ -99,14 +99,31 @@ def _requirements_fingerprint() -> str | None:
     return f"{stat.st_size}|{stat.st_mtime_ns}"
 
 
+def _dependencies_present(python_exe: Path) -> bool:
+    try:
+        _run_subprocess(
+            [
+                str(python_exe),
+                "-c",
+                "import gradio,langchain,langchain_openai,langchain_chroma",
+            ]
+        )
+        return True
+    except RuntimeError:
+        return False
+
+
 def _install_requirements(python_exe: Path) -> None:
     fingerprint = _requirements_fingerprint()
     if fingerprint is None:
         return
+    need_install = True
     if STAMP_FILE.exists():
         saved = STAMP_FILE.read_text(encoding="utf-8").strip()
-        if saved == fingerprint:
-            return
+        if saved == fingerprint and _dependencies_present(python_exe):
+            need_install = False
+    if not need_install:
+        return
     _show_dialog(
         "Document RAG Assistant",
         "Installing project dependencies. This may take a minute—please wait.",
