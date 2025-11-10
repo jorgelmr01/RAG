@@ -17,7 +17,7 @@ citations.
 ## Quick start (Windows)
 
 1. **Unzip or clone** the folder.
-2. **Double-click `start_app.bat`.**
+2. **Double-click `start_app.pyw`.**
    - First run: creates `.venv`, upgrades `pip`, installs `requirements.txt`.
    - Subsequent runs: skips the install step unless `requirements.txt` changes.
 3. When the browser opens, enter your OpenAI API key in the Configuration panel
@@ -82,8 +82,7 @@ Unknown extensions fall back to plain-text parsing.
 ```
 app.py                # Gradio web server
 requirements.txt      # Runtime dependencies
-start_app.bat         # Windows launcher (auto-setup)
-start_app.pyw         # Console-free entry point
+start_app.pyw         # Windows launcher & bootstrapper
 src/
   __init__.py
   config.py           # Runtime configuration helpers
@@ -106,5 +105,5 @@ ignored automatically and will be re-generated locally as needed.
 ## Sharing the project
 
 Zip the folder (excluding `.venv/` if present) or share the Git repo. Recipients
-can double-click `start_app.bat` (Windows) or follow the macOS/Linux steps above
+can double-click `start_app.pyw` (Windows) or follow the macOS/Linux steps above
 to get started immediately.
