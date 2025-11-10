@@ -11,7 +11,7 @@ from typing import Generator, Iterable, List, Optional, Sequence, Tuple
 from uuid import uuid4
 
 from chromadb.config import Settings as ChromaSettings
-from langchain.schema import Document
+from langchain_core.documents import Document
 from langchain_chroma import Chroma
 from langchain_core.messages import AIMessageChunk, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.vectorstores import VectorStoreRetriever
