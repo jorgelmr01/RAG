@@ -8,9 +8,11 @@ citations.
 
 - Multi-file upload with automatic loaders for PDF, DOCX, TXT/MD/RTF, CSV and TSV.
 - Smart chunking, similarity filtering and inline `[n]` references.
+- Save and reopen named projects so you can query previously embedded document
+  sets instantly without reprocessing.
 - Clean Gradio interface with source cards and knowledge-base summary.
 - One-click setup on Windows: the launcher creates the virtual environment,
-  installs dependencies when they change, and starts the app automatically.
+  installs dependencies only when needed, and starts the app automatically.
 
 ---
 
@@ -59,15 +61,24 @@ OPENAI_API_KEY=sk-REPLACE_ME
 # TOP_K=6
 # SCORE_THRESHOLD=0.35
 # MAX_CONTEXT_SECTIONS=6
+# PROJECTS_PATH=projects
 ```
 
 ## Using the app
 
 1. Provide your API key if you haven’t already.
-2. Drag-and-drop documents or browse for them, then click **Process documents**.
-3. Ask questions; responses stream with inline citations.
-4. Review supporting sources and the indexed document list in the right column.
-5. Append more files or clear the knowledge base as needed.
+2. Choose an existing project or create a new one in the *Projects* accordion.
+3. Drag-and-drop documents or browse for them, then click **Process documents**.
+4. Ask questions; responses stream with inline citations.
+5. Review supporting sources and the indexed document list in the right column.
+6. Append more files, switch projects, or clear the current project’s knowledge as needed.
+
+## Managing projects
+
+- **Create & switch:** enter a descriptive name (e.g. `client-a`) and click **Create & Switch** to start a fresh vector store.
+- **Load existing:** pick a project from the dropdown and click **Load Selected** to reuse its embedded sources instantly.
+- **Clear project knowledge:** wipes the current project’s embeddings while keeping the project entry for new uploads.
+- All project data lives under `projects/` by default (override with `PROJECTS_PATH`).
 
 ## Supported file types
 
@@ -93,9 +104,10 @@ src/
   config.py           # Runtime configuration helpers
   document_loaders.py # File-type aware ingestion
   pipeline.py         # RAG ingestion & streaming pipeline
+  project_store.py    # Persisted project metadata helpers
 ```
 
-Runtime artefacts such as `.venv/`, `last_error.log`, and `chroma_db/` are
+Runtime artefacts such as `.venv/`, `projects/`, `last_error.log`, and `chroma_db/` are
 ignored automatically and will be re-generated locally as needed.
 
 ## Troubleshooting

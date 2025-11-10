@@ -60,6 +60,96 @@ def _format_indexed_documents(raw: str) -> str:
     return f"**Indexed documents**\n\n{cleaned}"
 
 
+def _project_status_text(pipeline: RAGPipeline) -> str:
+    return pipeline.project_status()
+
+
+def _project_choices(pipeline: RAGPipeline):
+    choices = pipeline.project_options()
+    if not choices:
+        return []
+    return choices
+
+
+def refresh_project_list(state: Optional[RAGPipeline]):
+    pipeline = _ensure_pipeline(state)
+    pipeline.ensure_project_selected()
+    choices = _project_choices(pipeline)
+    value = pipeline.current_project.name if pipeline.current_project else None
+    status = _project_status_text(pipeline)
+    overview = _format_indexed_documents(pipeline.render_loaded_sources())
+    return (
+        pipeline,
+        gr.update(choices=choices, value=value),
+        gr.update(value=status),
+        gr.update(value=overview),
+    )
+
+
+def create_project(project_name: str, state: Optional[RAGPipeline]):
+    pipeline = _ensure_pipeline(state)
+    name = (project_name or "").strip()
+    if not name:
+        msg = "⚠️ Enter a project name to create."
+        status = _project_status_text(pipeline)
+        return (
+            pipeline,
+            gr.update(choices=_project_choices(pipeline), value=(pipeline.current_project.name if pipeline.current_project else None)),
+            gr.update(value=status),
+            gr.update(value=msg),
+            gr.update(value=_format_indexed_documents(pipeline.render_loaded_sources())),
+            [],
+            gr.update(value="No responses yet."),
+        )
+    try:
+        info = pipeline.create_project(name)
+        msg = f"✅ Project `{info.display_name}` created. Upload documents to build its knowledge base."
+    except ValueError as exc:
+        msg = f"⚠️ {exc}"
+    choices = _project_choices(pipeline)
+    status = _project_status_text(pipeline)
+    return (
+        pipeline,
+        gr.update(choices=choices, value=(pipeline.current_project.name if pipeline.current_project else None)),
+        gr.update(value=status),
+        gr.update(value=msg),
+        gr.update(value=_format_indexed_documents(pipeline.render_loaded_sources())),
+        [],
+        gr.update(value="No responses yet."),
+    )
+
+
+def load_project(selected: Optional[str], state: Optional[RAGPipeline]):
+    pipeline = _ensure_pipeline(state)
+    if not selected:
+        status = _project_status_text(pipeline)
+        return (
+            pipeline,
+            gr.update(choices=_project_choices(pipeline), value=(pipeline.current_project.name if pipeline.current_project else None)),
+            gr.update(value=status),
+            gr.update(value="⚠️ Select a project to load."),
+            gr.update(value=_format_indexed_documents(pipeline.render_loaded_sources())),
+            [],
+            gr.update(value="No responses yet."),
+        )
+    try:
+        info = pipeline.load_project(selected)
+        msg = f"✅ Loaded project `{info.display_name}`."
+    except ValueError as exc:
+        msg = f"⚠️ {exc}"
+    choices = _project_choices(pipeline)
+    status = _project_status_text(pipeline)
+    return (
+        pipeline,
+        gr.update(choices=choices, value=(pipeline.current_project.name if pipeline.current_project else None)),
+        gr.update(value=status),
+        gr.update(value=msg),
+        gr.update(value=_format_indexed_documents(pipeline.render_loaded_sources())),
+        [],
+        gr.update(value="No responses yet."),
+    )
+
+
 CUSTOM_CSS = """
 .source-card {
     border: 1px solid var(--border-color-primary);
@@ -107,12 +197,14 @@ def set_api_key(api_key: str, state: Optional[RAGPipeline]):
 
 def ingest_documents(files, append, state: Optional[RAGPipeline]):
     pipeline = _ensure_pipeline(state)
+    pipeline.ensure_project_selected()
     file_paths = _extract_paths(files)
     if not file_paths:
         return (
             pipeline,
             gr.update(value="Upload at least one document to build the knowledge base."),
             gr.update(value=_format_indexed_documents(pipeline.render_loaded_sources())),
+            gr.update(value=_project_status_text(pipeline)),
         )
 
     try:
@@ -122,34 +214,45 @@ def ingest_documents(files, append, state: Optional[RAGPipeline]):
             pipeline,
             gr.update(value=_friendly_error_message(exc)),
             gr.update(value=_format_indexed_documents(pipeline.render_loaded_sources())),
+            gr.update(value=_project_status_text(pipeline)),
         )
     except DocumentIngestionError as exc:
         return (
             pipeline,
             gr.update(value=f"⚠️ {exc}"),
             gr.update(value=_format_indexed_documents(pipeline.render_loaded_sources())),
+            gr.update(value=_project_status_text(pipeline)),
         )
     except Exception as exc:  # pragma: no cover - defensive
         return (
             pipeline,
             gr.update(value=_friendly_error_message(exc)),
             gr.update(value=_format_indexed_documents(pipeline.render_loaded_sources())),
+            gr.update(value=_project_status_text(pipeline)),
         )
 
-    message = (
-        f"Indexed {stats.chunks} chunks from {stats.documents} document pieces."
-        if stats.chunks
-        else "No text content detected in the uploaded files."
-    )
+    project_display = pipeline.current_project.display_name if pipeline.current_project else "current project"
+    total_files = len(stats.files)
+    if stats.chunks:
+        message = (
+            f"✅ Project `{project_display}` now holds {stats.chunks} chunks across {total_files} source files."
+        )
+    else:
+        message = (
+            f"⚠️ No text content detected in the uploaded files. Project `{project_display}` remains unchanged."
+        )
+
     return (
         pipeline,
-        gr.update(value=f"✅ {message}"),
+        gr.update(value=message),
         gr.update(value=_format_indexed_documents(pipeline.render_loaded_sources())),
+        gr.update(value=_project_status_text(pipeline)),
     )
 
 
 def respond(message, chat_history, state: Optional[RAGPipeline]):
     pipeline = _ensure_pipeline(state)
+    pipeline.ensure_project_selected()
     indexed_docs = _format_indexed_documents(pipeline.render_loaded_sources())
     if not message:
         yield (
@@ -203,12 +306,17 @@ def clear_chat(state: Optional[RAGPipeline]):
 
 def reset_knowledge(state: Optional[RAGPipeline]):
     pipeline = _ensure_pipeline(state)
-    pipeline.reset_knowledge()
+    try:
+        pipeline.reset_current_project()
+        message = "Knowledge base cleared for the current project."
+    except ValueError as exc:
+        message = f"⚠️ {exc}"
     return (
         [],
         pipeline,
-        gr.update(value="Knowledge base cleared."),
+        gr.update(value=message),
         gr.update(value=_format_indexed_documents(pipeline.render_loaded_sources())),
+        gr.update(value=_project_status_text(pipeline)),
         gr.update(value=""),
     )
 
@@ -225,6 +333,26 @@ def build_interface(config: AppConfig = CONFIG) -> gr.Blocks:
         )
 
         state = gr.State(RAGPipeline(config))
+
+        with gr.Accordion("Projects", open=True):
+            with gr.Row():
+                project_dropdown = gr.Dropdown(
+                    label="Saved projects",
+                    choices=[],
+                    value=None,
+                    allow_custom_value=False,
+                    scale=3,
+                )
+                load_project_btn = gr.Button("Load Selected", variant="secondary", scale=1)
+                refresh_projects_btn = gr.Button("Refresh", variant="secondary", scale=1)
+            with gr.Row():
+                new_project_name = gr.Textbox(
+                    label="Create new project",
+                    placeholder="e.g. client-a",
+                    scale=3,
+                )
+                create_project_btn = gr.Button("Create & Switch", variant="primary", scale=1)
+            project_status = gr.Markdown("No project selected.")
 
         with gr.Accordion("Configuration", open=False):
             api_key_input = gr.Textbox(
@@ -255,7 +383,7 @@ def build_interface(config: AppConfig = CONFIG) -> gr.Blocks:
                     value=False,
                 )
                 ingest_button = gr.Button("Process Documents", variant="primary")
-                clear_kb = gr.Button("Clear Knowledge Base", variant="secondary")
+                clear_kb = gr.Button("Clear Project Knowledge", variant="secondary")
 
         with gr.Row(equal_height=True, elem_id="chat-row"):
             with gr.Column(scale=3, elem_id="chat-column"):
@@ -272,7 +400,7 @@ def build_interface(config: AppConfig = CONFIG) -> gr.Blocks:
 
             with gr.Column(scale=2, min_width=320):
                 ingest_feedback = gr.Markdown(
-                    "Awaiting document upload.",
+                    "Select or create a project, then upload documents.",
                     elem_classes=["source-card"],
                 )
                 sources_panel = gr.Markdown(
@@ -284,10 +412,16 @@ def build_interface(config: AppConfig = CONFIG) -> gr.Blocks:
                     elem_classes=["source-card"],
                 )
 
+        demo.load(
+            refresh_project_list,
+            inputs=[state],
+            outputs=[state, project_dropdown, project_status, source_overview],
+        )
+
         ingest_button.click(
             ingest_documents,
             inputs=[file_input, append_checkbox, state],
-            outputs=[state, ingest_feedback, source_overview],
+            outputs=[state, ingest_feedback, source_overview, project_status],
         )
 
         submit.click(
@@ -313,7 +447,44 @@ def build_interface(config: AppConfig = CONFIG) -> gr.Blocks:
         clear_kb.click(
             reset_knowledge,
             inputs=[state],
-            outputs=[chatbot, state, ingest_feedback, source_overview, user_input],
+            outputs=[chatbot, state, ingest_feedback, source_overview, project_status, user_input],
+            queue=False,
+        )
+
+        create_project_btn.click(
+            create_project,
+            inputs=[new_project_name, state],
+            outputs=[
+                state,
+                project_dropdown,
+                project_status,
+                ingest_feedback,
+                source_overview,
+                chatbot,
+                sources_panel,
+            ],
+            queue=False,
+        )
+
+        load_project_btn.click(
+            load_project,
+            inputs=[project_dropdown, state],
+            outputs=[
+                state,
+                project_dropdown,
+                project_status,
+                ingest_feedback,
+                source_overview,
+                chatbot,
+                sources_panel,
+            ],
+            queue=False,
+        )
+
+        refresh_projects_btn.click(
+            refresh_project_list,
+            inputs=[state],
+            outputs=[state, project_dropdown, project_status, source_overview],
             queue=False,
         )
 

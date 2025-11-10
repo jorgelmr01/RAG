@@ -123,7 +123,6 @@ def launch_app() -> None:
 def main() -> None:
     print_header()
     ensure_virtualenv()
-
     ensure_dependencies()
     launch_app()
 

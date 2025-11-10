@@ -20,6 +20,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from .config import AppConfig
 from .document_loaders import load_documents
+from .project_store import ProjectInfo, ProjectStore
 
 
 class DocumentIngestionError(RuntimeError):
@@ -76,18 +77,14 @@ class RAGPipeline:
 
     def __init__(self, config: Optional[AppConfig] = None) -> None:
         self.config = config or AppConfig()
+        self.project_store = ProjectStore(Path(self.config.projects_path))
         self._embeddings: Optional[OpenAIEmbeddings] = None
         self._llm: Optional[ChatOpenAI] = None
-        self._collection_name = f"session-{uuid4().hex}"
-        self._client_settings = ChromaSettings(
-            allow_reset=True,
-            is_persistent=False,
-            anonymized_telemetry=False,
-        )
         self.vector_store: Optional[Chroma] = None
         self.retriever: Optional[VectorStoreRetriever] = None
         self.stats = KnowledgeStats()
         self._last_documents: List[Document] = []
+        self.current_project: Optional[ProjectInfo] = None
 
     # ------------------------------------------------------------------
     # Client initialisation helpers
@@ -117,20 +114,96 @@ class RAGPipeline:
             self.configure_api_key()
 
     # ------------------------------------------------------------------
-    # Knowledge base management
+    # Project management
     # ------------------------------------------------------------------
+    @property
+    def has_project(self) -> bool:
+        return self.current_project is not None
+
     @property
     def has_knowledge(self) -> bool:
         return self.vector_store is not None and self.stats.chunks > 0
 
-    def reset_knowledge(self) -> None:
-        """Drop the in-memory vector store and reset statistics."""
+    def list_projects(self) -> List[ProjectInfo]:
+        return self.project_store.list_infos()
 
-        self.vector_store = None
-        self.retriever = None
-        self.stats = KnowledgeStats()
-        self._collection_name = f"session-{uuid4().hex}"
+    def project_options(self) -> List[Tuple[str, str]]:
+        return self.project_store.options()
+
+    def project_status(self) -> str:
+        if not self.current_project:
+            return "No project selected."
+        file_count = len(self.stats.files)
+        return (
+            f"**Current project:** `{self.current_project.display_name}`\n"
+            f"{self.stats.chunks} chunks across {file_count} source files."
+        )
+
+    def ensure_project_selected(self) -> ProjectInfo:
+        if self.current_project:
+            return self.current_project
+        existing = self.project_store.list_infos()
+        if existing:
+            return self._initialise_vector_store(existing[0])
+        return self.create_project("default")
+
+    def create_project(self, name: str) -> ProjectInfo:
+        info = self.project_store.ensure_project(name, create=True, reset=True)
+        return self._initialise_vector_store(info)
+
+    def load_project(self, name: str) -> ProjectInfo:
+        slug = self.project_store.sanitize_name(name)
+        if not self.project_store.exists(slug):
+            raise ValueError(f"Project '{name}' does not exist yet.")
+        info = self.project_store.load_info(slug)
+        return self._initialise_vector_store(info)
+
+    def reset_current_project(self) -> KnowledgeStats:
+        info = self.ensure_project_selected()
+        refreshed = self.project_store.ensure_project(info.display_name, create=True, reset=True)
+        self._initialise_vector_store(refreshed)
+        self._save_project_info()
+        return self.stats
+
+    def _initialise_vector_store(self, info: ProjectInfo) -> ProjectInfo:
+        self._ensure_clients()
+        vector_dir = self.project_store.vector_path(info.name, ensure=True)
+        self.vector_store = Chroma(
+            collection_name=f"project-{info.name}",
+            embedding_function=self._embeddings,
+            persist_directory=str(vector_dir),
+        )
+        search_kwargs = {"k": self.config.top_k}
+        if self.config.score_threshold > 0:
+            search_kwargs["score_threshold"] = self.config.score_threshold
+            search_type = "similarity_score_threshold"
+        else:
+            search_type = "similarity"
+        self.retriever = self.vector_store.as_retriever(
+            search_type=search_type,
+            search_kwargs=search_kwargs,
+        )
+        self.stats = KnowledgeStats(
+            files=set(info.files),
+            documents=info.documents,
+            chunks=info.chunks,
+        )
         self._last_documents = []
+        self.current_project = info
+        return info
+
+    def _save_project_info(self) -> None:
+        if not self.current_project:
+            return
+        info = ProjectInfo(
+            name=self.current_project.name,
+            display_name=self.current_project.display_name,
+            files=sorted(self.stats.files),
+            documents=self.stats.documents,
+            chunks=self.stats.chunks,
+        )
+        self.project_store.save_info(info)
+        self.current_project = info
 
     # ------------------------------------------------------------------
     # Ingestion
@@ -138,6 +211,7 @@ class RAGPipeline:
     def ingest(self, file_paths: Iterable[str | Path], *, append: bool = False) -> KnowledgeStats:
         """Load, split and embed the provided files."""
 
+        project = self.ensure_project_selected()
         self._ensure_clients()
         documents = load_documents(file_paths)
         if not documents:
@@ -155,39 +229,24 @@ class RAGPipeline:
                 "Document splitting produced zero chunks. Adjust chunk settings or verify contents."
             )
 
-        if not append or self.vector_store is None:
-            self.vector_store = Chroma(
-                collection_name=self._collection_name,
-                embedding_function=self._embeddings,
-                client_settings=self._client_settings,
-            )
-            self.stats = KnowledgeStats()
-
+        assert self.vector_store is not None  # ensured by ensure_project_selected
         ids = [str(uuid4()) for _ in chunks]
-        assert self.vector_store is not None  # satisfy type checker
         self.vector_store.add_documents(documents=chunks, ids=ids)
-        search_kwargs = {"k": self.config.top_k}
-        if self.config.score_threshold > 0:
-            search_kwargs["score_threshold"] = self.config.score_threshold
-        search_type = (
-            "similarity_score_threshold"
-            if self.config.score_threshold > 0
-            else "similarity"
-        )
-        self.retriever = self.vector_store.as_retriever(
-            search_type=search_type,
-            search_kwargs=search_kwargs,
-        )
+        self.vector_store.persist()
 
         self.stats.files.update({doc.metadata.get("source", "") for doc in documents})
         self.stats.documents += len(documents)
         self.stats.chunks += len(chunks)
+        self._save_project_info()
+        # Ensure retriever reflects updated config
+        self._initialise_vector_store(self.current_project)
         return self.stats
 
     # ------------------------------------------------------------------
     # Retrieval and generation
     # ------------------------------------------------------------------
     def retrieve(self, question: str) -> List[Document]:
+        self.ensure_project_selected()
         if not self.has_knowledge or self.retriever is None:
             raise RuntimeError("No documents indexed. Upload files before asking a question.")
         assert self.vector_store is not None  # safety

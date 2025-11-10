@@ -58,6 +58,7 @@ class AppConfig:
     score_threshold: float = _env_float("SCORE_THRESHOLD", 0.35)
     max_context_sections: int = _env_int("MAX_CONTEXT_SECTIONS", 6)
     fallback_source_label: str = "Unknown document"
+    projects_path: str = os.getenv("PROJECTS_PATH", "projects")
 
     def as_dict(self) -> Dict[str, Any]:
         """Return the configuration as a serialisable dictionary."""
@@ -73,6 +74,7 @@ class AppConfig:
             "history_turns": self.history_turns,
             "score_threshold": self.score_threshold,
             "max_context_sections": self.max_context_sections,
+            "projects_path": self.projects_path,
         }
 
 
