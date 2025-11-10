@@ -9,10 +9,12 @@ import traceback
 from pathlib import Path
 
 try:
-    from tkinter import messagebox, Tk
+    from tkinter import Label, Tk, Toplevel, ttk, messagebox
 except Exception:  # pragma: no cover - tkinter may be missing in rare installs
     messagebox = None  # type: ignore
     Tk = None  # type: ignore
+    Label = None  # type: ignore
+    ttk = None  # type: ignore
 
 
 ROOT = Path(__file__).resolve().parent
@@ -38,6 +40,50 @@ class _NullStream:
 
     def isatty(self) -> bool:
         return False
+
+
+class _StatusWindow:
+    """Lightweight status window for long-running setup steps."""
+
+    def __init__(self, title: str) -> None:
+        self._enabled = Tk is not None
+        self._root: Tk | None = None
+        self._label: Label | None = None
+        if not self._enabled:
+            print(f"[{title}] Starting...")
+            return
+        try:
+            root = Tk()
+            root.title(title)
+            root.geometry("420x160")
+            root.resizable(False, False)
+            root.attributes("-topmost", True)
+            label = Label(root, text="Preparing...", wraplength=380, justify="left")
+            label.pack(padx=20, pady=20, anchor="w")
+            root.update()
+            self._root = root
+            self._label = label
+        except Exception:
+            self._enabled = False
+            self._root = None
+            self._label = None
+
+    def update(self, message: str) -> None:
+        if self._enabled and self._root is not None and self._label is not None:
+            self._label.configure(text=message)
+            self._root.update_idletasks()
+            self._root.update()
+        else:
+            print(message)
+
+    def close(self) -> None:
+        if self._enabled and self._root is not None:
+            try:
+                self._root.destroy()
+            except Exception:
+                pass
+        self._root = None
+        self._label = None
 
 
 def _show_dialog(title: str, body: str, *, error: bool = False) -> None:
@@ -113,7 +159,7 @@ def _dependencies_present(python_exe: Path) -> bool:
         return False
 
 
-def _install_requirements(python_exe: Path) -> None:
+def _install_requirements(python_exe: Path, status: _StatusWindow) -> None:
     fingerprint = _requirements_fingerprint()
     if fingerprint is None:
         return
@@ -124,10 +170,7 @@ def _install_requirements(python_exe: Path) -> None:
             need_install = False
     if not need_install:
         return
-    _show_dialog(
-        "Document RAG Assistant",
-        "Installing project dependencies. This may take a minute—please wait.",
-    )
+    status.update("Installing project dependencies… (this may take a minute)")
     _run_subprocess([str(python_exe), "-m", "pip", "install", "--upgrade", "pip"])
     _run_subprocess([str(python_exe), "-m", "pip", "install", "-r", str(REQUIREMENTS)])
     STAMP_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -141,13 +184,14 @@ def _running_inside_venv() -> bool:
         return False
 
 
-def _bootstrap_environment() -> bool:
+def _bootstrap_environment(status: _StatusWindow) -> bool:
     """Ensure the virtual environment and dependencies exist.
 
     Returns True if this process should continue to launch the app, False if a
     child process has been spawned and the current process should exit.
     """
 
+    status.update("Checking Python environment…")
     _ensure_virtualenv()
 
     venv_python = VENV_PY
@@ -156,50 +200,58 @@ def _bootstrap_environment() -> bool:
 
     # Install dependencies using the venv's console Python
     console_python = venv_python
-    _install_requirements(console_python)
+    _install_requirements(console_python, status)
 
     # If we're already inside the venv, continue in this process.
     if _running_inside_venv():
         return True
 
     # Relaunch this script inside the virtual environment using pythonw (GUI) when available.
+    status.update("Launching assistant…")
     pythonw = VENV_PYW if VENV_PYW.exists() else venv_python
     subprocess.Popen([str(pythonw), str(ROOT / "start_app.pyw")], env=os.environ.copy())
     return False
 
 
 def main() -> None:
-    if not _bootstrap_environment():
-        return
-
-    _prepare_path()
+    status = _StatusWindow("Document RAG Assistant")
     try:
-        from app import launch_app  # local import after path adjustment
-    except Exception as exc:  # pragma: no cover - surfaced on runtime import issue
-        log_path = _write_log(exc)
-        _show_error(
-            "Document RAG Assistant",
-            (
-                "Failed to start the application.\n\n"
-                f"Details were written to: {log_path}\n"
-                "If dependencies are missing, run 'pip install -r requirements.txt'."
-            ),
-        )
-        raise
+        if not _bootstrap_environment(status):
+            status.close()
+            return
+        status.update("Starting app…")
 
-    try:
-        launch_app()
-    except Exception as exc:  # pragma: no cover - runtime errors are logged
-        log_path = _write_log(exc)
-        _show_error(
-            "Document RAG Assistant",
-            (
-                "The app encountered an unexpected error and closed.\n\n"
-                f"Details were written to: {log_path}\n"
-                "Please share the log if you need support."
-            ),
-        )
-        raise
+        _prepare_path()
+        try:
+            from app import launch_app  # local import after path adjustment
+        except Exception as exc:  # pragma: no cover - surfaced on runtime import issue
+            log_path = _write_log(exc)
+            _show_error(
+                "Document RAG Assistant",
+                (
+                    "Failed to start the application.\n\n"
+                    f"Details were written to: {log_path}\n"
+                    "If dependencies are missing, run 'pip install -r requirements.txt'."
+                ),
+            )
+            raise
+
+        try:
+            status.close()
+            launch_app()
+        except Exception as exc:  # pragma: no cover - runtime errors are logged
+            log_path = _write_log(exc)
+            _show_error(
+                "Document RAG Assistant",
+                (
+                    "The app encountered an unexpected error and closed.\n\n"
+                    f"Details were written to: {log_path}\n"
+                    "Please share the log if you need support."
+                ),
+            )
+            raise
+    finally:
+        status.close()
 
 
 if __name__ == "__main__":
