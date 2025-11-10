@@ -9,12 +9,13 @@ import traceback
 from pathlib import Path
 
 try:
-    from tkinter import Label, Tk, Toplevel, ttk, messagebox
+    import tkinter as tk
+    from tkinter import messagebox
+    from tkinter.scrolledtext import ScrolledText
 except Exception:  # pragma: no cover - tkinter may be missing in rare installs
+    tk = None  # type: ignore
     messagebox = None  # type: ignore
-    Tk = None  # type: ignore
-    Label = None  # type: ignore
-    ttk = None  # type: ignore
+    ScrolledText = None  # type: ignore
 
 
 ROOT = Path(__file__).resolve().parent
@@ -46,35 +47,54 @@ class _StatusWindow:
     """Lightweight status window for long-running setup steps."""
 
     def __init__(self, title: str) -> None:
-        self._enabled = Tk is not None
-        self._root: Tk | None = None
-        self._label: Label | None = None
+        self._enabled = tk is not None and ScrolledText is not None
+        self._root = None
+        self._header = None
+        self._log = None
         if not self._enabled:
-            print(f"[{title}] Starting...")
+            print(f"[{title}]")
             return
         try:
-            root = Tk()
+            root = tk.Tk()
             root.title(title)
-            root.geometry("420x160")
+            root.geometry("520x260")
             root.resizable(False, False)
             root.attributes("-topmost", True)
-            label = Label(root, text="Preparing...", wraplength=380, justify="left")
-            label.pack(padx=20, pady=20, anchor="w")
+            header = tk.Label(root, text="Preparing…", anchor="w", font=("Segoe UI", 11, "bold"))
+            header.pack(fill="x", padx=20, pady=(18, 6))
+            log = ScrolledText(root, height=9, width=60, state="disabled", font=("Consolas", 9))
+            log.pack(fill="both", expand=True, padx=20, pady=(0, 18))
             root.update()
             self._root = root
-            self._label = label
+            self._header = header
+            self._log = log
         except Exception:
             self._enabled = False
             self._root = None
-            self._label = None
+            self._header = None
+            self._log = None
 
-    def update(self, message: str) -> None:
-        if self._enabled and self._root is not None and self._label is not None:
-            self._label.configure(text=message)
+    def pump(self) -> None:
+        if self._enabled and self._root is not None:
             self._root.update_idletasks()
             self._root.update()
+
+    def step(self, message: str) -> None:
+        if self._enabled and self._header is not None:
+            self._header.configure(text=message)
+            self.pump()
         else:
             print(message)
+
+    def append(self, line: str) -> None:
+        if self._enabled and self._log is not None:
+            self._log.configure(state="normal")
+            self._log.insert("end", line + "\n")
+            self._log.see("end")
+            self._log.configure(state="disabled")
+            self.pump()
+        else:
+            print(line)
 
     def close(self) -> None:
         if self._enabled and self._root is not None:
@@ -83,14 +103,15 @@ class _StatusWindow:
             except Exception:
                 pass
         self._root = None
-        self._label = None
+        self._header = None
+        self._log = None
 
 
 def _show_dialog(title: str, body: str, *, error: bool = False) -> None:
-    if messagebox is None or Tk is None:
+    if messagebox is None or tk is None:
         return
     try:
-        root = Tk()
+        root = tk.Tk()
         root.withdraw()
         if error:
             messagebox.showerror(title, body)
@@ -121,21 +142,41 @@ def _prepare_path() -> None:
         sys.stderr = _NullStream("stderr")  # type: ignore[assignment]
 
 
-def _run_subprocess(args: list[str]) -> None:
-    result = subprocess.run(args, capture_output=True, text=True)
-    if result.returncode != 0:
-        output = (result.stdout or "") + (result.stderr or "")
-        raise RuntimeError(f"Command failed: {' '.join(args)}\n\n{output.strip()}")
+def _run_command(args: list[str], status: _StatusWindow, description: str | None = None) -> None:
+    if description:
+        status.step(description)
+    status.append(f"$ {' '.join(args)}")
+    creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    process = subprocess.Popen(
+        args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+        universal_newlines=True,
+        cwd=str(ROOT),
+        creationflags=creationflags,
+    )
+    assert process.stdout is not None
+    while True:
+        line = process.stdout.readline()
+        if not line:
+            if process.poll() is not None:
+                break
+            status.pump()
+            continue
+        status.append(line.rstrip())
+    process.stdout.close()
+    process.wait()
+    status.pump()
+    if process.returncode != 0:
+        raise RuntimeError(f"Command failed with exit code {process.returncode}: {' '.join(args)}")
 
 
-def _ensure_virtualenv() -> None:
+def _ensure_virtualenv(status: _StatusWindow) -> None:
     if VENV_PY.exists():
         return
-    _show_dialog(
-        "Document RAG Assistant",
-        "Setting up the Python environment. This runs once and may take a minute.",
-    )
-    _run_subprocess([sys.executable, "-m", "venv", str(VENV_DIR)])
+    _run_command([sys.executable, "-m", "venv", str(VENV_DIR)], status, "Creating Python virtual environment…")
 
 
 def _requirements_fingerprint() -> str | None:
@@ -147,15 +188,19 @@ def _requirements_fingerprint() -> str | None:
 
 def _dependencies_present(python_exe: Path) -> bool:
     try:
-        _run_subprocess(
+        creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        subprocess.run(
             [
                 str(python_exe),
                 "-c",
                 "import gradio,langchain,langchain_openai,langchain_chroma",
-            ]
+            ],
+            check=True,
+            cwd=str(ROOT),
+            creationflags=creationflags,
         )
         return True
-    except RuntimeError:
+    except Exception:
         return False
 
 
@@ -170,9 +215,16 @@ def _install_requirements(python_exe: Path, status: _StatusWindow) -> None:
             need_install = False
     if not need_install:
         return
-    status.update("Installing project dependencies… (this may take a minute)")
-    _run_subprocess([str(python_exe), "-m", "pip", "install", "--upgrade", "pip"])
-    _run_subprocess([str(python_exe), "-m", "pip", "install", "-r", str(REQUIREMENTS)])
+    _run_command(
+        [str(python_exe), "-m", "pip", "install", "--upgrade", "pip"],
+        status,
+        "Upgrading pip…",
+    )
+    _run_command(
+        [str(python_exe), "-m", "pip", "install", "-r", str(REQUIREMENTS)],
+        status,
+        "Installing project dependencies… (this may take a minute)",
+    )
     STAMP_FILE.parent.mkdir(parents=True, exist_ok=True)
     STAMP_FILE.write_text(fingerprint, encoding="utf-8")
 
@@ -191,8 +243,8 @@ def _bootstrap_environment(status: _StatusWindow) -> bool:
     child process has been spawned and the current process should exit.
     """
 
-    status.update("Checking Python environment…")
-    _ensure_virtualenv()
+    status.step("Checking Python environment…")
+    _ensure_virtualenv(status)
 
     venv_python = VENV_PY
     if not venv_python.exists():
@@ -207,7 +259,7 @@ def _bootstrap_environment(status: _StatusWindow) -> bool:
         return True
 
     # Relaunch this script inside the virtual environment using pythonw (GUI) when available.
-    status.update("Launching assistant…")
+    status.step("Launching assistant…")
     pythonw = VENV_PYW if VENV_PYW.exists() else venv_python
     subprocess.Popen([str(pythonw), str(ROOT / "start_app.pyw")], env=os.environ.copy())
     return False
@@ -219,7 +271,7 @@ def main() -> None:
         if not _bootstrap_environment(status):
             status.close()
             return
-        status.update("Starting app…")
+        status.step("Starting app…")
 
         _prepare_path()
         try:
