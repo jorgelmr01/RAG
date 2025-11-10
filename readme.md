@@ -37,6 +37,8 @@ python app.py
 ```
 
 The Gradio UI appears in your browser; use it exactly as on Windows.
+On macOS you can also double-click `start_app.command` (after running
+`chmod +x start_app.command` once) for the same automated setup.
 
 ## Configure your OpenAI credentials
 
@@ -84,6 +86,7 @@ Unknown extensions fall back to plain-text parsing.
 app.py                # Gradio web server
 requirements.txt      # Runtime dependencies
 start_app.pyw         # Windows launcher & bootstrapper
+start_app.command     # macOS launcher (run with double-click)
 src/
   __init__.py
   config.py           # Runtime configuration helpers
@@ -106,5 +109,6 @@ ignored automatically and will be re-generated locally as needed.
 ## Sharing the project
 
 Zip the folder (excluding `.venv/` if present) or share the Git repo. Recipients
-can double-click `start_app.pyw` (Windows) or follow the macOS/Linux steps above
+can double-click `start_app.pyw` (Windows) or `start_app.command` (macOS, after
+`chmod +x start_app.command`) or follow the manual steps above
 to get started immediately.
