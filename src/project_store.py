@@ -7,7 +7,7 @@ import re
 import shutil
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Iterable, List, Tuple
+from typing import List, Tuple
 
 
 @dataclass(slots=True)

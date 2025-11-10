@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Any, Dict
 
 from dotenv import load_dotenv
 
@@ -50,32 +49,18 @@ class AppConfig:
     chat_model: str = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
     embedding_model: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-large")
     temperature: float = _env_float("OPENAI_TEMPERATURE", 0.2)
-    chunk_size: int = _env_int("CHUNK_SIZE", 1200)
-    chunk_overlap: int = _env_int("CHUNK_OVERLAP", 200)
-    top_k: int = _env_int("TOP_K", 6)
-    max_context_chars: int = _env_int("MAX_CONTEXT_CHARS", 1600)
+    chunk_size: int = _env_int("CHUNK_SIZE", 1500)  # Increased for better context in large docs
+    chunk_overlap: int = _env_int("CHUNK_OVERLAP", 300)  # Increased overlap for continuity
+    top_k: int = _env_int("TOP_K", 8)  # Increased for better recall
+    max_context_chars: int = _env_int("MAX_CONTEXT_CHARS", 2000)  # Increased for large docs
     history_turns: int = _env_int("MAX_HISTORY_TURNS", 6)
-    score_threshold: float = _env_float("SCORE_THRESHOLD", 0.35)
-    max_context_sections: int = _env_int("MAX_CONTEXT_SECTIONS", 6)
+    score_threshold: float = _env_float("SCORE_THRESHOLD", 0.5)  # More lenient threshold for better recall
+    max_context_sections: int = _env_int("MAX_CONTEXT_SECTIONS", 12)  # Increased for better recall
+    use_mmr: bool = os.getenv("USE_MMR", "false").lower() in ("true", "1", "yes")  # Disabled by default for better relevance
+    mmr_diversity: float = _env_float("MMR_DIVERSITY", 0.7)  # More relevance-focused when MMR is used
+    enable_query_expansion: bool = os.getenv("ENABLE_QUERY_EXPANSION", "true").lower() in ("true", "1", "yes")
     fallback_source_label: str = "Unknown document"
     projects_path: str = os.getenv("PROJECTS_PATH", "projects")
-
-    def as_dict(self) -> Dict[str, Any]:
-        """Return the configuration as a serialisable dictionary."""
-
-        return {
-            "chat_model": self.chat_model,
-            "embedding_model": self.embedding_model,
-            "temperature": self.temperature,
-            "chunk_size": self.chunk_size,
-            "chunk_overlap": self.chunk_overlap,
-            "top_k": self.top_k,
-            "max_context_chars": self.max_context_chars,
-            "history_turns": self.history_turns,
-            "score_threshold": self.score_threshold,
-            "max_context_sections": self.max_context_sections,
-            "projects_path": self.projects_path,
-        }
 
 
 __all__ = ["AppConfig"]

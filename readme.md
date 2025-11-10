@@ -56,11 +56,15 @@ OPENAI_API_KEY=sk-REPLACE_ME
 # Optional overrides
 # OPENAI_CHAT_MODEL=gpt-4o-mini
 # OPENAI_EMBEDDING_MODEL=text-embedding-3-large
-# CHUNK_SIZE=1200
-# CHUNK_OVERLAP=200
-# TOP_K=6
-# SCORE_THRESHOLD=0.35
-# MAX_CONTEXT_SECTIONS=6
+# CHUNK_SIZE=1500              # Increased for better context in large docs
+# CHUNK_OVERLAP=300             # Increased overlap for continuity
+# TOP_K=8                      # Increased for better recall
+# SCORE_THRESHOLD=0.5           # More lenient threshold for better recall
+# MAX_CONTEXT_SECTIONS=12       # Increased for better recall of specific details
+# MAX_CONTEXT_CHARS=2000        # Increased for large documents
+# USE_MMR=false                 # Disabled by default for better relevance (enable for diversity)
+# MMR_DIVERSITY=0.7             # More relevance-focused when MMR is used
+# ENABLE_QUERY_EXPANSION=true   # Enable query expansion for better matching
 # PROJECTS_PATH=projects
 ```
 

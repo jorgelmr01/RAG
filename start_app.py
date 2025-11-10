@@ -12,7 +12,6 @@ ROOT = Path(__file__).resolve().parent
 VENV_DIR = ROOT / ".venv"
 SCRIPTS_DIR = VENV_DIR / ("Scripts" if os.name == "nt" else "bin")
 VENV_PY = SCRIPTS_DIR / ("python.exe" if os.name == "nt" else "python")
-VENV_PYW = SCRIPTS_DIR / ("pythonw.exe" if os.name == "nt" else "python")
 REQUIREMENTS = ROOT / "requirements.txt"
 STAMP_FILE = VENV_DIR / "requirements.fingerprint"
 REQUIRED_MODULES = [

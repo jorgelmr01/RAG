@@ -70,25 +70,21 @@ def _project_status_text(pipeline: RAGPipeline) -> str:
     return pipeline.project_status()
 
 
-def _project_choices(pipeline: RAGPipeline):
+def _get_project_dropdown_update(pipeline: RAGPipeline) -> gr.update:
+    """Get the project dropdown update with current choices and value."""
     choices = pipeline.project_options()
-    if not choices:
-        return []
-    return choices
+    value = pipeline.current_project.name if pipeline.current_project else None
+    return gr.update(choices=choices, value=value)
 
 
 def refresh_project_list(state: Optional[RAGPipeline]):
     pipeline = _ensure_pipeline(state)
     pipeline.ensure_project_selected()
-    choices = _project_choices(pipeline)
-    value = pipeline.current_project.name if pipeline.current_project else None
-    status = _project_status_text(pipeline)
-    overview = _format_indexed_documents(pipeline.render_loaded_sources())
     return (
         pipeline,
-        gr.update(choices=choices, value=value),
-        gr.update(value=status),
-        gr.update(value=overview),
+        _get_project_dropdown_update(pipeline),
+        gr.update(value=_project_status_text(pipeline)),
+        gr.update(value=_format_indexed_documents(pipeline.render_loaded_sources())),
     )
 
 
@@ -97,11 +93,10 @@ def create_project(project_name: str, state: Optional[RAGPipeline]):
     name = (project_name or "").strip()
     if not name:
         msg = "⚠️ Enter a project name to create."
-        status = _project_status_text(pipeline)
         return (
             pipeline,
-            gr.update(choices=_project_choices(pipeline), value=(pipeline.current_project.name if pipeline.current_project else None)),
-            gr.update(value=status),
+            _get_project_dropdown_update(pipeline),
+            gr.update(value=_project_status_text(pipeline)),
             gr.update(value=msg),
             gr.update(value=_format_indexed_documents(pipeline.render_loaded_sources())),
             [],
@@ -112,12 +107,10 @@ def create_project(project_name: str, state: Optional[RAGPipeline]):
         msg = f"✅ Project `{info.display_name}` created. Upload documents to build its knowledge base."
     except ValueError as exc:
         msg = f"⚠️ {exc}"
-    choices = _project_choices(pipeline)
-    status = _project_status_text(pipeline)
     return (
         pipeline,
-        gr.update(choices=choices, value=(pipeline.current_project.name if pipeline.current_project else None)),
-        gr.update(value=status),
+        _get_project_dropdown_update(pipeline),
+        gr.update(value=_project_status_text(pipeline)),
         gr.update(value=msg),
         gr.update(value=_format_indexed_documents(pipeline.render_loaded_sources())),
         [],
@@ -128,11 +121,10 @@ def create_project(project_name: str, state: Optional[RAGPipeline]):
 def load_project(selected: Optional[str], state: Optional[RAGPipeline]):
     pipeline = _ensure_pipeline(state)
     if not selected:
-        status = _project_status_text(pipeline)
         return (
             pipeline,
-            gr.update(choices=_project_choices(pipeline), value=(pipeline.current_project.name if pipeline.current_project else None)),
-            gr.update(value=status),
+            _get_project_dropdown_update(pipeline),
+            gr.update(value=_project_status_text(pipeline)),
             gr.update(value="⚠️ Select a project to load."),
             gr.update(value=_format_indexed_documents(pipeline.render_loaded_sources())),
             [],
@@ -143,12 +135,10 @@ def load_project(selected: Optional[str], state: Optional[RAGPipeline]):
         msg = f"✅ Loaded project `{info.display_name}`."
     except ValueError as exc:
         msg = f"⚠️ {exc}"
-    choices = _project_choices(pipeline)
-    status = _project_status_text(pipeline)
     return (
         pipeline,
-        gr.update(choices=choices, value=(pipeline.current_project.name if pipeline.current_project else None)),
-        gr.update(value=status),
+        _get_project_dropdown_update(pipeline),
+        gr.update(value=_project_status_text(pipeline)),
         gr.update(value=msg),
         gr.update(value=_format_indexed_documents(pipeline.render_loaded_sources())),
         [],

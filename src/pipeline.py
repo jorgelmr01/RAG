@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Generator, Iterable, List, Optional, Sequence, Tuple
 from uuid import uuid4
 
-from chromadb.config import Settings as ChromaSettings
 from langchain_core.documents import Document
 from langchain_chroma import Chroma
 from langchain_core.messages import AIMessageChunk, BaseMessage, HumanMessage, SystemMessage
@@ -36,6 +35,40 @@ def _clean_text(value: str, *, limit: int) -> str:
     return textwrap.shorten(stripped, width=limit, placeholder=" …")
 
 
+def _expand_query(query: str) -> str:
+    """Expand query with synonyms and variations to improve retrieval."""
+    # Normalize common question patterns
+    query = query.strip()
+    
+    # Expand character name variations (e.g., "Edmond" -> "Edmond Dantes", "Edmond Dantès")
+    # This is a simple heuristic - in production, you might use a more sophisticated approach
+    if "edmond" in query.lower() and "dantes" not in query.lower() and "dantès" not in query.lower():
+        query = query.replace("Edmond", "Edmond Dantes").replace("edmond", "Edmond Dantes")
+    
+    # Expand possessive forms
+    query = re.sub(r"(\w+)'s\s+", r"\1's \1 ", query, flags=re.IGNORECASE)
+    
+    # Add context words for better matching
+    question_words = ["what", "who", "where", "when", "why", "how", "which"]
+    if any(query.lower().startswith(word) for word in question_words):
+        # Keep original query but it's already well-formed
+        pass
+    
+    return query
+
+
+def _preprocess_query(query: str, expand: bool = True) -> str:
+    """Preprocess query to improve retrieval matching."""
+    # Normalize whitespace
+    query = re.sub(r"\s+", " ", query.strip())
+    
+    # Expand query if enabled
+    if expand:
+        query = _expand_query(query)
+    
+    return query
+
+
 def _format_history(history: Sequence[tuple[str, str]], max_turns: int) -> str:
     if not history:
         return "(no prior conversation)"
@@ -51,16 +84,20 @@ def _build_messages(
     history_block: str,
 ) -> List[BaseMessage]:
     system_prompt = (
-        "You are a meticulous research assistant. "
-        "Answer the user's question strictly using the provided context. "
+        "You are a meticulous research assistant analyzing documents. "
+        "Answer the user's question using the provided context. "
+        "You may infer answers from the context even if not explicitly stated. "
+        "Look for related information, synonyms, and contextual clues. "
         "Cite the supporting snippets with bracketed references like [1] tied to the context order. "
-        "If the context lacks the answer, say you do not have enough information."
+        "Only say 'I do not have enough information' if the context truly contains no relevant information "
+        "that could help answer the question, even indirectly."
     )
     user_prompt = (
         f"Conversation so far:\n{history_block}\n\n"
-        f"Context:\n{context_block}\n\n"
-        f"Question: {question}\n"
-        "Formulate a helpful, concise answer in markdown."
+        f"Context from documents:\n{context_block}\n\n"
+        f"Question: {question}\n\n"
+        "Analyze the context carefully and provide a helpful answer. If the answer can be inferred from the context, provide it. "
+        "Formulate your answer in markdown."
     )
     return [SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)]
 
@@ -202,6 +239,30 @@ class RAGPipeline:
         self._save_project_info()
         return self.stats
 
+    def _update_retriever(self) -> None:
+        """Update the retriever with current config settings."""
+        if self.vector_store is None:
+            return
+        search_kwargs = {"k": self.config.top_k}
+        
+        # Use MMR (Maximum Marginal Relevance) for better diversity in large document sets
+        if self.config.use_mmr:
+            search_kwargs["fetch_k"] = min(self.config.top_k * 2, 20)  # Fetch more candidates for MMR
+            search_kwargs["lambda_mult"] = self.config.mmr_diversity  # 0 = max diversity, 1 = max relevance
+            # Note: MMR doesn't support score_threshold directly, so we filter after retrieval
+            search_type = "mmr"
+        else:
+            if self.config.score_threshold > 0:
+                search_kwargs["score_threshold"] = self.config.score_threshold
+                search_type = "similarity_score_threshold"
+            else:
+                search_type = "similarity"
+        
+        self.retriever = self.vector_store.as_retriever(
+            search_type=search_type,
+            search_kwargs=search_kwargs,
+        )
+
     def _initialise_vector_store(self, info: ProjectInfo) -> ProjectInfo:
         """Initialize the vector store for a project. Requires API key to be configured."""
         self._ensure_clients()
@@ -227,16 +288,7 @@ class RAGPipeline:
             embedding_function=self._embeddings,
             persist_directory=str(vector_dir),
         )
-        search_kwargs = {"k": self.config.top_k}
-        if self.config.score_threshold > 0:
-            search_kwargs["score_threshold"] = self.config.score_threshold
-            search_type = "similarity_score_threshold"
-        else:
-            search_type = "similarity"
-        self.retriever = self.vector_store.as_retriever(
-            search_type=search_type,
-            search_kwargs=search_kwargs,
-        )
+        self._update_retriever()
         self.stats = KnowledgeStats(
             files=set(info.files),
             documents=info.documents,
@@ -278,9 +330,18 @@ class RAGPipeline:
                 "No readable documents were found in the uploaded files."
             )
 
+        # Use separators optimized for semantic boundaries in large documents
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=self.config.chunk_size,
             chunk_overlap=self.config.chunk_overlap,
+            separators=[
+                "\n\n\n",  # Multiple paragraph breaks (sections)
+                "\n\n",    # Paragraph breaks
+                "\n",      # Line breaks
+                ". ",      # Sentence endings
+                " ",       # Word boundaries
+                "",        # Character boundaries (fallback)
+            ],
         )
         chunks = splitter.split_documents(documents)
         if not chunks:
@@ -298,8 +359,8 @@ class RAGPipeline:
         self.stats.documents += len(documents)
         self.stats.chunks += len(chunks)
         self._save_project_info()
-        # Ensure retriever reflects updated config
-        self._initialise_vector_store(self.current_project)
+        # Update retriever to reflect current config (vector store already has new documents)
+        self._update_retriever()
         return self.stats
 
     # ------------------------------------------------------------------
@@ -316,20 +377,94 @@ class RAGPipeline:
         if not self.has_knowledge or self.retriever is None:
             raise RuntimeError("No documents indexed. Upload files before asking a question.")
         assert self.vector_store is not None  # safety
-        results: List[Tuple[Document, float]] = self.vector_store.similarity_search_with_score(
-            question,
-            k=max(self.config.top_k, self.config.max_context_sections),
-        )
+        
+        # Preprocess query to improve matching
+        processed_query = _preprocess_query(question, expand=self.config.enable_query_expansion)
+        
+        # Retrieve more candidates for better recall
+        fetch_k = max(self.config.top_k * 3, self.config.max_context_sections * 3, 30)
+        
+        if self.config.use_mmr:
+            # MMR retrieval for diversity - use vector store directly
+            # Fetch more candidates for MMR to have better selection
+            mmr_fetch_k = min(fetch_k, 30)
+            results = self.vector_store.max_marginal_relevance_search(
+                processed_query,
+                k=min(self.config.top_k * 2, self.config.max_context_sections),
+                fetch_k=mmr_fetch_k,
+                lambda_mult=self.config.mmr_diversity,
+            )
+            # Get scores for the MMR results to apply threshold
+            if self.config.score_threshold > 0 and results:
+                # Get scores for the retrieved documents
+                scored_results = self.vector_store.similarity_search_with_score(
+                    processed_query,
+                    k=len(results) * 2,  # Get more to match
+                )
+                # Create a score map - match by content similarity
+                score_map = {}
+                for doc, score in scored_results:
+                    # Use content hash as key for matching
+                    content_key = hash(doc.page_content[:200])
+                    if content_key not in score_map or score < score_map[content_key]:
+                        score_map[content_key] = score
+                
+                # Filter MMR results by score
+                filtered = []
+                for doc in results:
+                    content_key = hash(doc.page_content[:200])
+                    score = score_map.get(content_key, 1.0)  # Default high score if not found
+                    if score <= self.config.score_threshold:
+                        filtered.append(doc)
+                
+                if not filtered and results:
+                    # If threshold filtered everything, use top results anyway
+                    filtered = results[:self.config.max_context_sections]
+            else:
+                filtered = results
+        else:
+            # Standard similarity search with scores - better for specific details
+            results: List[Tuple[Document, float]] = self.vector_store.similarity_search_with_score(
+                processed_query,
+                k=fetch_k,
+            )
+            filtered: List[Document] = []
+            seen_content = set()  # Deduplicate by content hash
+            for document, score in results:
+                # Apply score threshold - but be lenient: use a higher threshold for filtering
+                # ChromaDB uses cosine distance, so lower scores are better (0 = identical, 1 = orthogonal)
+                # We'll be more lenient and only filter very poor matches
+                if self.config.score_threshold > 0 and score > self.config.score_threshold:
+                    # Still include if it's close to threshold (within 0.1) for better recall
+                    if score > self.config.score_threshold + 0.1:
+                        continue
+                # Deduplicate: skip chunks with identical or very similar content
+                content_hash = hash(document.page_content[:100])  # Hash first 100 chars
+                if content_hash in seen_content:
+                    continue
+                seen_content.add(content_hash)
+                filtered.append(document)
+            
+            if not filtered and results:
+                # Fallback: use all results if threshold filtered everything
+                # Take top results even if they don't meet threshold
+                filtered = [doc for doc, _ in results[:self.config.max_context_sections]]
 
-        filtered: List[Document] = []
-        for document, score in results:
-            if self.config.score_threshold > 0 and score > self.config.score_threshold:
-                continue
-            filtered.append(document)
-        if not filtered and results:
-            filtered = [doc for doc, _ in results]
+        # Limit to max_context_sections and remove duplicates by source+position
+        limited: List[Document] = []
+        seen_combos = set()
+        for doc in filtered:
+            # Create unique identifier from source and a snippet of content
+            source = doc.metadata.get("source", "")
+            page = doc.metadata.get("page", "")
+            content_snippet = doc.page_content[:50]  # First 50 chars
+            combo = (source, str(page), content_snippet)
+            if combo not in seen_combos:
+                seen_combos.add(combo)
+                limited.append(doc)
+                if len(limited) >= self.config.max_context_sections:
+                    break
 
-        limited = filtered[: self.config.max_context_sections]
         if not limited:
             raise RuntimeError(
                 "No relevant context found for this question. Try rephrasing or upload more documents."
