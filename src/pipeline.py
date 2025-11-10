@@ -80,6 +80,7 @@ class RAGPipeline:
         self.project_store = ProjectStore(Path(self.config.projects_path))
         self._embeddings: Optional[OpenAIEmbeddings] = None
         self._llm: Optional[ChatOpenAI] = None
+        self._api_key: Optional[str] = None
         self.vector_store: Optional[Chroma] = None
         self.retriever: Optional[VectorStoreRetriever] = None
         self.stats = KnowledgeStats()
@@ -92,26 +93,62 @@ class RAGPipeline:
     def configure_api_key(self, api_key: Optional[str] = None) -> None:
         """Set (or refresh) the API credentials used by the pipeline."""
 
-        key = (api_key or os.getenv("OPENAI_API_KEY", "")).strip()
+        key = (api_key or self._api_key or os.getenv("OPENAI_API_KEY", "")).strip()
         if not key:
             raise ValueError(
                 "No OpenAI API key found. Provide one via the UI or set OPENAI_API_KEY."
             )
+        
+        # Validate key format
+        if not key.startswith("sk-"):
+            raise ValueError(
+                "API key should start with 'sk-'. Please check that you copied the complete key."
+            )
+        
+        if len(key) < 20:
+            raise ValueError(
+                "API key appears to be truncated. OpenAI keys are typically 51 characters long. "
+                "Please copy the complete key from https://platform.openai.com/account/api-keys"
+            )
+        
+        # Store the key for future use
+        self._api_key = key
+        os.environ["OPENAI_API_KEY"] = key
 
-        self._embeddings = OpenAIEmbeddings(
-            model=self.config.embedding_model,
-            api_key=key,
-        )
-        self._llm = ChatOpenAI(
-            model=self.config.chat_model,
-            temperature=self.config.temperature,
-            streaming=True,
-            api_key=key,
-        )
+        try:
+            self._embeddings = OpenAIEmbeddings(
+                model=self.config.embedding_model,
+                api_key=key,
+            )
+            self._llm = ChatOpenAI(
+                model=self.config.chat_model,
+                temperature=self.config.temperature,
+                streaming=True,
+                api_key=key,
+            )
+        except Exception as exc:
+            error_str = str(exc).lower()
+            if "invalid_api_key" in error_str or "incorrect api key" in error_str or "401" in error_str:
+                raise ValueError(
+                    f"Invalid API key. The key you provided was rejected by OpenAI. "
+                    f"Please verify it at https://platform.openai.com/account/api-keys"
+                ) from exc
+            raise
+        
+        # If we have a current project but no vector store yet, initialize it now
+        if self.current_project is not None and self.vector_store is None:
+            self._initialise_vector_store(self.current_project)
 
     def _ensure_clients(self) -> None:
+        """Ensure OpenAI clients are initialized. Only initializes if API key is available."""
         if self._embeddings is None or self._llm is None:
-            self.configure_api_key()
+            # Try to configure API key, but don't raise error if not available
+            # This allows the pipeline to be initialized without an API key
+            try:
+                self.configure_api_key()
+            except ValueError:
+                # No API key available yet - this is OK, we'll require it when needed
+                pass
 
     # ------------------------------------------------------------------
     # Project management
@@ -166,7 +203,24 @@ class RAGPipeline:
         return self.stats
 
     def _initialise_vector_store(self, info: ProjectInfo) -> ProjectInfo:
+        """Initialize the vector store for a project. Requires API key to be configured."""
         self._ensure_clients()
+        
+        # If we don't have embeddings yet (no API key), we can't initialize the vector store
+        # Just set the project info and stats, but leave vector_store as None
+        if self._embeddings is None:
+            self.stats = KnowledgeStats(
+                files=set(info.files),
+                documents=info.documents,
+                chunks=info.chunks,
+            )
+            self._last_documents = []
+            self.current_project = info
+            self.vector_store = None
+            self.retriever = None
+            return info
+        
+        # We have embeddings, so we can initialize the vector store
         vector_dir = self.project_store.vector_path(info.name, ensure=True)
         self.vector_store = Chroma(
             collection_name=f"project-{info.name}",
@@ -213,6 +267,11 @@ class RAGPipeline:
 
         project = self.ensure_project_selected()
         self._ensure_clients()
+        if self._embeddings is None:
+            raise ValueError(
+                "OpenAI API key is required to ingest documents. "
+                "Please configure your API key in the Configuration section."
+            )
         documents = load_documents(file_paths)
         if not documents:
             raise DocumentIngestionError(
@@ -232,7 +291,8 @@ class RAGPipeline:
         assert self.vector_store is not None  # ensured by ensure_project_selected
         ids = [str(uuid4()) for _ in chunks]
         self.vector_store.add_documents(documents=chunks, ids=ids)
-        self.vector_store.persist()
+        # Note: ChromaDB with persist_directory automatically persists data,
+        # so no explicit persist() call is needed
 
         self.stats.files.update({doc.metadata.get("source", "") for doc in documents})
         self.stats.documents += len(documents)
@@ -247,6 +307,12 @@ class RAGPipeline:
     # ------------------------------------------------------------------
     def retrieve(self, question: str) -> List[Document]:
         self.ensure_project_selected()
+        self._ensure_clients()
+        if self._embeddings is None:
+            raise ValueError(
+                "OpenAI API key is required to retrieve documents. "
+                "Please configure your API key in the Configuration section."
+            )
         if not self.has_knowledge or self.retriever is None:
             raise RuntimeError("No documents indexed. Upload files before asking a question.")
         assert self.vector_store is not None  # safety

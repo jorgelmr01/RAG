@@ -27,6 +27,12 @@ def _friendly_error_message(exc: Exception) -> str:
             "⚠️ OpenAI rate-limited the request. Wait a few seconds and try again, or reduce "
             "concurrent uploads."
         )
+    if "invalid_api_key" in lowered or "incorrect api key" in lowered or "401" in text:
+        return (
+            "⚠️ Invalid API key. Please check that you've entered the correct key in the "
+            "Configuration section. Your key should start with 'sk-' and be 51 characters long. "
+            "Get your key at https://platform.openai.com/account/api-keys"
+        )
     return f"⚠️ Unexpected error: {text}"
 
 
@@ -185,13 +191,47 @@ CUSTOM_CSS = """
 
 def set_api_key(api_key: str, state: Optional[RAGPipeline]):
     pipeline = _ensure_pipeline(state)
-    key = (api_key or "").strip()
-    if key:
-        os.environ["OPENAI_API_KEY"] = key
+    # Clean the key: strip whitespace and newlines from all sides
+    if api_key:
+        key = api_key.strip().replace("\n", "").replace("\r", "").replace(" ", "")
+    else:
+        key = ""
+    
+    # Validate the key format
+    if not key:
+        return pipeline, gr.update(value="⚠️ Please enter an API key.")
+    
+    if not key.startswith("sk-"):
+        return pipeline, gr.update(
+            value="⚠️ API key should start with 'sk-'. Check that you copied the full key. "
+            f"Received key starts with: '{key[:5]}...' (length: {len(key)})"
+        )
+    
+    if len(key) < 20:
+        return pipeline, gr.update(
+            value=f"⚠️ API key appears to be truncated. Received length: {len(key)} characters. "
+            "OpenAI keys are typically 51 characters long. Please copy the complete key."
+        )
+    
+    # Store in environment
+    os.environ["OPENAI_API_KEY"] = key
+    
     try:
-        pipeline.configure_api_key(key if key else None)
+        pipeline.configure_api_key(key)
     except ValueError as exc:
         return pipeline, gr.update(value=f"⚠️ {exc}")
+    except Exception as exc:
+        error_msg = str(exc)
+        if "invalid_api_key" in error_msg.lower() or "incorrect api key" in error_msg.lower() or "401" in error_msg:
+            return pipeline, gr.update(
+                value="⚠️ Invalid API key. Please verify:\n"
+                f"- The key you entered is {len(key)} characters long (should be ~51)\n"
+                "- The key starts with 'sk-' and is complete\n"
+                "- You copied it from https://platform.openai.com/account/api-keys\n"
+                "- The key hasn't been revoked or expired\n"
+                "- Try copying and pasting the key again"
+            )
+        return pipeline, gr.update(value=f"⚠️ Error configuring API key: {error_msg}")
     return pipeline, gr.update(value="✅ API key configured. You can now ingest documents.")
 
 
