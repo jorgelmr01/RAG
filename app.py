@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import datetime
 import os
+import platform
+import sys
+import traceback
 from pathlib import Path
 from typing import Any, Iterable, List, Optional
 
@@ -37,6 +41,58 @@ def _friendly_error_message(exc: Exception) -> str:
 
 
 CONFIG = AppConfig()
+ROOT = Path(__file__).resolve().parent
+ERROR_LOG = ROOT / "error_log.txt"
+
+
+def get_system_info() -> str:
+    """Collect system information for error logs."""
+    info = []
+    info.append(f"Platform: {platform.platform()}")
+    info.append(f"System: {platform.system()} {platform.release()}")
+    info.append(f"Architecture: {platform.machine()}")
+    info.append(f"Python Version: {sys.version}")
+    info.append(f"Python Executable: {sys.executable}")
+    info.append(f"Working Directory: {os.getcwd()}")
+    info.append(f"Script Directory: {ROOT}")
+    return "\n".join(info)
+
+
+def write_error_log(error_type: str, error: Exception, context: dict | None = None) -> None:
+    """Write detailed error information to a log file."""
+    try:
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(ERROR_LOG, "a", encoding="utf-8") as f:
+            f.write("=" * 80 + "\n")
+            f.write(f"ERROR LOG - {timestamp}\n")
+            f.write("=" * 80 + "\n\n")
+            
+            f.write("SYSTEM INFORMATION:\n")
+            f.write("-" * 80 + "\n")
+            f.write(get_system_info())
+            f.write("\n\n")
+            
+            f.write(f"ERROR TYPE: {error_type}\n")
+            f.write("-" * 80 + "\n")
+            f.write(f"Exception: {type(error).__name__}\n")
+            f.write(f"Message: {str(error)}\n\n")
+            
+            if context:
+                f.write("CONTEXT:\n")
+                f.write("-" * 80 + "\n")
+                for key, value in context.items():
+                    f.write(f"{key}: {value}\n")
+                f.write("\n")
+            
+            f.write("TRACEBACK:\n")
+            f.write("-" * 80 + "\n")
+            f.write("".join(traceback.format_exception(type(error), error, error.__traceback__)))
+            f.write("\n")
+            
+            f.write("=" * 80 + "\n\n")
+    except Exception as log_error:
+        # If we can't write the log, at least print it
+        print(f"\n⚠️  Could not write error log: {log_error}")
 
 
 def _ensure_pipeline(state: Optional[RAGPipeline], config: AppConfig = CONFIG) -> RAGPipeline:
@@ -291,6 +347,17 @@ def ingest_documents(files, append, chunk_size, chunk_overlap, embedding_model, 
             chunk_overlap=chunk_overlap_int,
         )
     except ValueError as exc:
+        # Log ingestion errors
+        write_error_log(
+            "Document Ingestion Error (ValueError)",
+            exc,
+            {
+                "Files": str(file_paths),
+                "Append Mode": bool(append),
+                "Chunk Size": chunk_size_int,
+                "Chunk Overlap": chunk_overlap_int,
+            }
+        )
         return (
             pipeline,
             gr.update(value=_friendly_error_message(exc)),
@@ -298,6 +365,17 @@ def ingest_documents(files, append, chunk_size, chunk_overlap, embedding_model, 
             gr.update(value=_project_status_text(pipeline)),
         )
     except DocumentIngestionError as exc:
+        # Log ingestion errors
+        write_error_log(
+            "Document Ingestion Error",
+            exc,
+            {
+                "Files": str(file_paths),
+                "Append Mode": bool(append),
+                "Chunk Size": chunk_size_int,
+                "Chunk Overlap": chunk_overlap_int,
+            }
+        )
         return (
             pipeline,
             gr.update(value=f"⚠️ {exc}"),
@@ -305,6 +383,17 @@ def ingest_documents(files, append, chunk_size, chunk_overlap, embedding_model, 
             gr.update(value=_project_status_text(pipeline)),
         )
     except Exception as exc:  # pragma: no cover - defensive
+        # Log unexpected ingestion errors
+        write_error_log(
+            "Unexpected Ingestion Error",
+            exc,
+            {
+                "Files": str(file_paths),
+                "Append Mode": bool(append),
+                "Chunk Size": chunk_size_int,
+                "Chunk Overlap": chunk_overlap_int,
+            }
+        )
         return (
             pipeline,
             gr.update(value=_friendly_error_message(exc)),
@@ -361,6 +450,16 @@ def respond(message, chat_history, top_k, max_context_sections, score_threshold,
     try:
         docs = pipeline.retrieve(message)
     except Exception as exc:
+        # Log retrieval errors
+        write_error_log(
+            "Retrieval Error",
+            exc,
+            {
+                "Question": message,
+                "Pipeline State": "active" if pipeline else "none",
+                "Has Knowledge": pipeline.has_knowledge if pipeline else False,
+            }
+        )
         chat_history = chat_history + [(message, _friendly_error_message(exc))]
         yield (
             chat_history,
@@ -691,5 +790,32 @@ def launch_app(
 
 
 if __name__ == "__main__":
-    launch_app()
+    try:
+        launch_app()
+    except KeyboardInterrupt:
+        print("\n\nApplication stopped by user.")
+        sys.exit(0)
+    except Exception as exc:
+        print(f"\n\n❌ Fatal error: {exc}")
+        print(f"📝 Error details have been saved to: {ERROR_LOG}")
+        print("   Please share this file if you need help troubleshooting.")
+        
+        # Log the fatal error
+        write_error_log("Fatal Application Error", exc, {"Phase": "Application launch"})
+        
+        # Try to show a user-friendly message
+        try:
+            import gradio as gr
+            with gr.Blocks(title="Error") as error_ui:
+                gr.Markdown(
+                    f"# ❌ Application Error\n\n"
+                    f"An unexpected error occurred: {exc}\n\n"
+                    f"Error details have been saved to: `{ERROR_LOG}`\n\n"
+                    f"Please share this file for troubleshooting."
+                )
+            error_ui.launch(server_name="127.0.0.1", server_port=7860, share=False, quiet=True)
+        except Exception:
+            pass  # If we can't show the error UI, just exit
+        
+        sys.exit(1)
 

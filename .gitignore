@@ -6,5 +6,6 @@ __pycache__/
 venv/
 chroma_db/
 last_error.log
+error_log.txt
 projects/
 .env
