@@ -331,7 +331,7 @@ def ingest_documents(files, append, chunk_size, chunk_overlap, embedding_model, 
     )
 
 
-def respond(message, chat_history, state: Optional[RAGPipeline]):
+def respond(message, chat_history, top_k, max_context_sections, score_threshold, temperature, state: Optional[RAGPipeline]):
     pipeline = _ensure_pipeline(state)
     pipeline.ensure_project_selected()
     indexed_docs = _format_indexed_documents(pipeline.render_loaded_sources())
@@ -344,6 +344,19 @@ def respond(message, chat_history, state: Optional[RAGPipeline]):
             gr.update(value=""),
         )
         return
+
+    # Update config with user settings
+    if top_k is not None:
+        pipeline.config.top_k = int(top_k)
+    if max_context_sections is not None:
+        pipeline.config.max_context_sections = int(max_context_sections)
+    if score_threshold is not None:
+        pipeline.config.score_threshold = float(score_threshold)
+    if temperature is not None:
+        pipeline.config.temperature = float(temperature)
+        # Update LLM temperature if already initialized
+        if pipeline._llm is not None:
+            pipeline._llm.temperature = float(temperature)
 
     try:
         docs = pipeline.retrieve(message)
@@ -484,6 +497,50 @@ def build_interface(config: AppConfig = CONFIG) -> gr.Blocks:
                 step=50,
                 info=f"Recommended: {CONFIG.chunk_overlap} (current default). Should be < chunk size.",
             )
+            
+            gr.Markdown("### Retrieval Settings")
+            gr.Markdown(
+                "Control how many chunks are retrieved and used for answering questions. "
+                "More chunks = more context but higher cost. Fewer chunks = faster and cheaper."
+            )
+            top_k_input = gr.Number(
+                label="Initial Chunks Retrieved",
+                value=CONFIG.top_k,
+                minimum=1,
+                maximum=50,
+                step=1,
+                info=f"Recommended: {CONFIG.top_k} (current default). How many chunks to initially retrieve from the vector store.",
+            )
+            max_context_sections_input = gr.Number(
+                label="Max Context Sections",
+                value=CONFIG.max_context_sections,
+                minimum=1,
+                maximum=30,
+                step=1,
+                info=f"Recommended: {CONFIG.max_context_sections} (current default). Maximum number of chunks to include in the final context sent to the LLM.",
+            )
+            score_threshold_input = gr.Slider(
+                label="Similarity Score Threshold",
+                value=CONFIG.score_threshold,
+                minimum=0.0,
+                maximum=1.0,
+                step=0.05,
+                info=f"Recommended: {CONFIG.score_threshold} (current default). Lower = more lenient (include more chunks), Higher = stricter (only very similar chunks). Set to 0 to disable filtering.",
+            )
+            
+            gr.Markdown("### Response Settings")
+            gr.Markdown(
+                "Control how the AI generates responses. "
+                "Temperature affects creativity vs accuracy."
+            )
+            temperature_input = gr.Slider(
+                label="Temperature",
+                value=CONFIG.temperature,
+                minimum=0.0,
+                maximum=1.0,
+                step=0.1,
+                info=f"Recommended: {CONFIG.temperature} (current default). Lower = more focused/accurate, Higher = more creative. For factual answers, keep it low (0.1-0.3).",
+            )
 
         # Set up API key button handler (after embedding_model_input is defined)
         api_key_button.click(
@@ -548,13 +605,13 @@ def build_interface(config: AppConfig = CONFIG) -> gr.Blocks:
 
         submit.click(
             respond,
-            inputs=[user_input, chatbot, state],
+            inputs=[user_input, chatbot, top_k_input, max_context_sections_input, score_threshold_input, temperature_input, state],
             outputs=[chatbot, state, sources_panel, source_overview, user_input],
             queue=True,
         )
         user_input.submit(
             respond,
-            inputs=[user_input, chatbot, state],
+            inputs=[user_input, chatbot, top_k_input, max_context_sections_input, score_threshold_input, temperature_input, state],
             outputs=[chatbot, state, sources_panel, source_overview, user_input],
             queue=True,
         )
