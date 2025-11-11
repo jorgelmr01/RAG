@@ -127,7 +127,7 @@ class RAGPipeline:
     # ------------------------------------------------------------------
     # Client initialisation helpers
     # ------------------------------------------------------------------
-    def configure_api_key(self, api_key: Optional[str] = None) -> None:
+    def configure_api_key(self, api_key: Optional[str] = None, embedding_model: Optional[str] = None) -> None:
         """Set (or refresh) the API credentials used by the pipeline."""
 
         key = (api_key or self._api_key or os.getenv("OPENAI_API_KEY", "")).strip()
@@ -152,9 +152,12 @@ class RAGPipeline:
         self._api_key = key
         os.environ["OPENAI_API_KEY"] = key
 
+        # Use provided embedding model or fall back to config
+        model_to_use = embedding_model or self.config.embedding_model
+
         try:
             self._embeddings = OpenAIEmbeddings(
-                model=self.config.embedding_model,
+                model=model_to_use,
                 api_key=key,
             )
             self._llm = ChatOpenAI(
@@ -314,7 +317,14 @@ class RAGPipeline:
     # ------------------------------------------------------------------
     # Ingestion
     # ------------------------------------------------------------------
-    def ingest(self, file_paths: Iterable[str | Path], *, append: bool = False) -> KnowledgeStats:
+    def ingest(
+        self, 
+        file_paths: Iterable[str | Path], 
+        *, 
+        append: bool = False,
+        chunk_size: Optional[int] = None,
+        chunk_overlap: Optional[int] = None,
+    ) -> KnowledgeStats:
         """Load, split and embed the provided files."""
 
         project = self.ensure_project_selected()
@@ -330,10 +340,37 @@ class RAGPipeline:
                 "No readable documents were found in the uploaded files."
             )
 
+        # Check if documents have actual text content
+        total_chars = sum(len(doc.page_content.strip()) for doc in documents)
+        if total_chars == 0:
+            raise DocumentIngestionError(
+                "Documents contain no text content. Please verify the files contain readable text."
+            )
+
+        # Use provided chunk settings or fall back to config defaults
+        chunk_size = chunk_size if chunk_size is not None else self.config.chunk_size
+        chunk_overlap = chunk_overlap if chunk_overlap is not None else self.config.chunk_overlap
+        
+        if chunk_size <= 0:
+            raise ValueError("Chunk size must be greater than 0.")
+        if chunk_overlap < 0:
+            raise ValueError("Chunk overlap cannot be negative.")
+        if chunk_overlap >= chunk_size:
+            raise ValueError("Chunk overlap must be less than chunk size.")
+        
+        # If chunk_size is larger than document, use a smaller size
+        if chunk_size > total_chars and total_chars > 0:
+            # Use document size as chunk size, but ensure minimum overlap
+            effective_chunk_size = max(total_chars, 100)  # Minimum 100 chars
+            effective_overlap = min(chunk_overlap, effective_chunk_size // 2)
+        else:
+            effective_chunk_size = chunk_size
+            effective_overlap = chunk_overlap
+
         # Use separators optimized for semantic boundaries in large documents
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=self.config.chunk_size,
-            chunk_overlap=self.config.chunk_overlap,
+            chunk_size=effective_chunk_size,
+            chunk_overlap=effective_overlap,
             separators=[
                 "\n\n\n",  # Multiple paragraph breaks (sections)
                 "\n\n",    # Paragraph breaks
@@ -345,8 +382,18 @@ class RAGPipeline:
         )
         chunks = splitter.split_documents(documents)
         if not chunks:
+            # Provide more diagnostic information
+            doc_info = []
+            for doc in documents[:3]:  # Show first 3 documents
+                content_len = len(doc.page_content.strip())
+                source = doc.metadata.get("source", "Unknown")
+                doc_info.append(f"{source}: {content_len} characters")
+            
             raise DocumentIngestionError(
-                "Document splitting produced zero chunks. Adjust chunk settings or verify contents."
+                f"Document splitting produced zero chunks. "
+                f"Chunk size: {effective_chunk_size}, Overlap: {effective_overlap}. "
+                f"Document info: {', '.join(doc_info)}. "
+                f"Try reducing chunk size or check if documents contain text."
             )
 
         assert self.vector_store is not None  # ensured by ensure_project_selected

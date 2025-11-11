@@ -15,6 +15,31 @@ from langchain_community.document_loaders import (
     TextLoader,
 )
 
+# Optional loaders - imported conditionally to avoid breaking if dependencies are missing
+try:
+    from langchain_community.document_loaders import UnstructuredExcelLoader
+    HAS_EXCEL = True
+except ImportError:
+    HAS_EXCEL = False
+
+try:
+    from langchain_community.document_loaders import UnstructuredPowerPointLoader
+    HAS_PPT = True
+except ImportError:
+    HAS_PPT = False
+
+try:
+    from langchain_community.document_loaders import BSHTMLLoader
+    HAS_HTML = True
+except ImportError:
+    HAS_HTML = False
+
+try:
+    from langchain_community.document_loaders import JSONLoader
+    HAS_JSON = True
+except ImportError:
+    HAS_JSON = False
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -42,6 +67,43 @@ def _docx_loader(path: Path) -> Sequence[Document]:
     return Docx2txtLoader(str(path)).load()
 
 
+def _excel_loader(path: Path) -> Sequence[Document]:
+    """Load Excel files (.xlsx, .xls)."""
+    if not HAS_EXCEL:
+        raise RuntimeError(
+            "Excel support requires additional dependencies. "
+            "Install with: pip install openpyxl unstructured[excel]"
+        )
+    return UnstructuredExcelLoader(str(path)).load()
+
+
+def _pptx_loader(path: Path) -> Sequence[Document]:
+    """Load PowerPoint files (.pptx, .ppt)."""
+    if not HAS_PPT:
+        raise RuntimeError(
+            "PowerPoint support requires additional dependencies. "
+            "Install with: pip install python-pptx unstructured[ppt]"
+        )
+    return UnstructuredPowerPointLoader(str(path)).load()
+
+
+def _html_loader(path: Path) -> Sequence[Document]:
+    """Load HTML files."""
+    if not HAS_HTML:
+        # Fallback to text loader for HTML
+        return _text_loader(path)
+    return BSHTMLLoader(str(path)).load()
+
+
+def _json_loader(path: Path) -> Sequence[Document]:
+    """Load JSON files."""
+    if not HAS_JSON:
+        # Fallback to text loader for JSON
+        return _text_loader(path)
+    # JSONLoader requires a jq_schema - use simple text extraction for now
+    return _text_loader(path)
+
+
 SUPPORTED_EXTENSIONS: dict[str, LoaderFactory] = {
     ".pdf": _pdf_loader,
     ".txt": _text_loader,
@@ -50,6 +112,14 @@ SUPPORTED_EXTENSIONS: dict[str, LoaderFactory] = {
     ".csv": partial(_csv_loader, delimiter=","),
     ".tsv": partial(_csv_loader, delimiter="\t"),
     ".docx": _docx_loader,
+    # Optional loaders - will fall back to text if dependencies missing
+    ".xlsx": _excel_loader if HAS_EXCEL else _text_loader,
+    ".xls": _excel_loader if HAS_EXCEL else _text_loader,
+    ".pptx": _pptx_loader if HAS_PPT else _text_loader,
+    ".ppt": _pptx_loader if HAS_PPT else _text_loader,
+    ".html": _html_loader,
+    ".htm": _html_loader,
+    ".json": _json_loader,
 }
 
 

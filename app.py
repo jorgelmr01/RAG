@@ -179,7 +179,7 @@ CUSTOM_CSS = """
 """
 
 
-def set_api_key(api_key: str, state: Optional[RAGPipeline]):
+def set_api_key(api_key: str, embedding_model: str, state: Optional[RAGPipeline]):
     pipeline = _ensure_pipeline(state)
     # Clean the key: strip whitespace and newlines from all sides
     if api_key:
@@ -207,7 +207,7 @@ def set_api_key(api_key: str, state: Optional[RAGPipeline]):
     os.environ["OPENAI_API_KEY"] = key
     
     try:
-        pipeline.configure_api_key(key)
+        pipeline.configure_api_key(key, embedding_model=embedding_model)
     except ValueError as exc:
         return pipeline, gr.update(value=f"⚠️ {exc}")
     except Exception as exc:
@@ -225,7 +225,7 @@ def set_api_key(api_key: str, state: Optional[RAGPipeline]):
     return pipeline, gr.update(value="✅ API key configured. You can now ingest documents.")
 
 
-def ingest_documents(files, append, state: Optional[RAGPipeline]):
+def ingest_documents(files, append, chunk_size, chunk_overlap, embedding_model, state: Optional[RAGPipeline]):
     pipeline = _ensure_pipeline(state)
     pipeline.ensure_project_selected()
     file_paths = _extract_paths(files)
@@ -237,8 +237,59 @@ def ingest_documents(files, append, state: Optional[RAGPipeline]):
             gr.update(value=_project_status_text(pipeline)),
         )
 
+    # Update embedding model if changed
+    if embedding_model and embedding_model != pipeline.config.embedding_model:
+        try:
+            pipeline.configure_api_key(embedding_model=embedding_model)
+        except Exception as exc:
+            return (
+                pipeline,
+                gr.update(value=f"⚠️ Error updating embedding model: {exc}"),
+                gr.update(value=_format_indexed_documents(pipeline.render_loaded_sources())),
+                gr.update(value=_project_status_text(pipeline)),
+            )
+
+    # Validate and convert chunk settings
     try:
-        stats = pipeline.ingest(file_paths, append=bool(append))
+        chunk_size_int = int(chunk_size) if chunk_size is not None else None
+        chunk_overlap_int = int(chunk_overlap) if chunk_overlap is not None else None
+        
+        if chunk_size_int is not None and chunk_size_int <= 0:
+            return (
+                pipeline,
+                gr.update(value="⚠️ Chunk size must be greater than 0."),
+                gr.update(value=_format_indexed_documents(pipeline.render_loaded_sources())),
+                gr.update(value=_project_status_text(pipeline)),
+            )
+        if chunk_overlap_int is not None and chunk_overlap_int < 0:
+            return (
+                pipeline,
+                gr.update(value="⚠️ Chunk overlap cannot be negative."),
+                gr.update(value=_format_indexed_documents(pipeline.render_loaded_sources())),
+                gr.update(value=_project_status_text(pipeline)),
+            )
+        if chunk_size_int is not None and chunk_overlap_int is not None and chunk_overlap_int >= chunk_size_int:
+            return (
+                pipeline,
+                gr.update(value="⚠️ Chunk overlap must be less than chunk size."),
+                gr.update(value=_format_indexed_documents(pipeline.render_loaded_sources())),
+                gr.update(value=_project_status_text(pipeline)),
+            )
+    except (ValueError, TypeError):
+        return (
+            pipeline,
+            gr.update(value="⚠️ Invalid chunk settings. Please enter valid numbers."),
+            gr.update(value=_format_indexed_documents(pipeline.render_loaded_sources())),
+            gr.update(value=_project_status_text(pipeline)),
+        )
+
+    try:
+        stats = pipeline.ingest(
+            file_paths, 
+            append=bool(append),
+            chunk_size=chunk_size_int,
+            chunk_overlap=chunk_overlap_int,
+        )
     except ValueError as exc:
         return (
             pipeline,
@@ -355,10 +406,13 @@ def build_interface(config: AppConfig = CONFIG) -> gr.Blocks:
     with gr.Blocks(title="Document RAG Assistant", css=CUSTOM_CSS, theme=gr.themes.Soft()) as demo:
         gr.Markdown(
             """
-            # Document RAG Assistant
+            # 📚 Document RAG Assistant
 
-            Upload documents, then ask grounded questions. The assistant responds using the
-            indexed context and includes inline references.
+            **Instructions:**
+            1. Create or select a project above
+            2. Upload your documents below
+            3. Click 'Process Documents' to add them to the knowledge base
+            4. Then ask questions in the chat!
             """
         )
 
@@ -384,21 +438,59 @@ def build_interface(config: AppConfig = CONFIG) -> gr.Blocks:
                 create_project_btn = gr.Button("Create & Switch", variant="primary", scale=1)
             project_status = gr.Markdown("No project selected.")
 
-        with gr.Accordion("Configuration", open=False):
+        with gr.Accordion("API Key", open=False):
             api_key_input = gr.Textbox(
                 label="OpenAI API Key",
                 type="password",
                 placeholder="sk-... (stored for this session only)",
             )
             api_key_status = gr.Markdown(
-                "Environment variables will be used unless you supply a key here."
+                "**Get your API key:** https://platform.openai.com/account/api-keys\n\n"
+                "Your key is stored only for this session and never shared. "
+                "You can also create a `.env` file in this folder with `OPENAI_API_KEY=sk-...`"
             )
             api_key_button = gr.Button("Set API Key", variant="primary")
-            api_key_button.click(
-                set_api_key,
-                inputs=[api_key_input, state],
-                outputs=[state, api_key_status],
+        
+        with gr.Accordion("Advanced Settings", open=False):
+            embedding_model_input = gr.Dropdown(
+                label="Embedding Model",
+                choices=[
+                    ("text-embedding-3-large (Recommended - Best Quality)", "text-embedding-3-large"),
+                    ("text-embedding-3-small (Faster & Cheaper)", "text-embedding-3-small"),
+                ],
+                value=CONFIG.embedding_model,
+                info="Large: Best accuracy, higher cost. Small: 6.5x cheaper, ~95% performance.",
             )
+            
+            gr.Markdown("### Chunking Settings")
+            gr.Markdown(
+                "Adjust how documents are split into chunks. "
+                "**Recommended:** Chunk size 1000-2000, Overlap 200-400. "
+                "Smaller chunks = more precise retrieval, larger chunks = more context."
+            )
+            chunk_size_input = gr.Number(
+                label="Chunk Size (characters)",
+                value=CONFIG.chunk_size,
+                minimum=100,
+                maximum=10000,
+                step=100,
+                info=f"Recommended: {CONFIG.chunk_size} (current default)",
+            )
+            chunk_overlap_input = gr.Number(
+                label="Chunk Overlap (characters)",
+                value=CONFIG.chunk_overlap,
+                minimum=0,
+                maximum=5000,
+                step=50,
+                info=f"Recommended: {CONFIG.chunk_overlap} (current default). Should be < chunk size.",
+            )
+
+        # Set up API key button handler (after embedding_model_input is defined)
+        api_key_button.click(
+            set_api_key,
+            inputs=[api_key_input, embedding_model_input, state],
+            outputs=[state, api_key_status],
+        )
 
         with gr.Row(elem_id="control-row"):
             file_input = gr.File(
@@ -450,7 +542,7 @@ def build_interface(config: AppConfig = CONFIG) -> gr.Blocks:
 
         ingest_button.click(
             ingest_documents,
-            inputs=[file_input, append_checkbox, state],
+            inputs=[file_input, append_checkbox, chunk_size_input, chunk_overlap_input, embedding_model_input, state],
             outputs=[state, ingest_feedback, source_overview, project_status],
         )
 

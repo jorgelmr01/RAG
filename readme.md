@@ -1,46 +1,68 @@
 # Document RAG Assistant
 
-A turnkey Retrieval Augmented Generation (RAG) web app that ingests any mix of
-documents, indexes them with LangChain/Chroma, and streams grounded answers with
-citations.
+A simple document assistant that lets you upload files and ask questions about them. Perfect for people with little technical background!
 
-## Highlights
+## ✨ What This Does
 
-- Multi-file upload with automatic loaders for PDF, DOCX, TXT/MD/RTF, CSV and TSV.
-- Smart chunking, similarity filtering and inline `[n]` references.
-- Save and reopen named projects so you can query previously embedded document
-  sets instantly without reprocessing.
-- Clean Gradio interface with source cards and knowledge-base summary.
-- One-click setup on Windows: the launcher creates the virtual environment,
-  installs dependencies only when needed, and starts the app automatically.
+Upload your documents (PDFs, Word files, text files) and ask questions. The assistant reads your documents and answers using information from them.
+
+## 🚀 Quick Start (Super Simple!)
+
+### For Windows Users:
+1. **Make sure Python is installed** - Download from https://www.python.org/downloads/ (check "Add Python to PATH" during installation)
+2. **Double-click `start_app.bat`**
+3. **Wait for browser to open** (first time takes 1-2 minutes)
+4. **Enter your OpenAI API key** in the Configuration section
+5. **Upload documents and ask questions!**
+
+### For Mac Users:
+1. **Make sure Python is installed** - Download from https://www.python.org/downloads/mac-osx/
+2. **Double-click `start_app.command`** (you may need to right-click → Open the first time)
+3. **Wait for browser to open** (first time takes 1-2 minutes)
+4. **Enter your OpenAI API key** in the Configuration section
+5. **Upload documents and ask questions!**
+
+> 📖 **New to this?** See `GETTING_STARTED.md` for a detailed step-by-step guide with screenshots and troubleshooting.
 
 ---
 
-## Quick start (Windows)
+## 🎯 Features
 
-1. **Unzip or clone** the folder.
-2. **Double-click `start_app.bat`.**
-   - First run: creates `.venv`, upgrades `pip`, installs only the missing packages.
-   - Subsequent runs: instantly launches the app unless `requirements.txt` changes
-     or dependencies are missing.
-3. When the browser opens, enter your OpenAI API key in the Configuration panel
-   (or create a `.env` file beforehand—see below).
+- **Easy to use** - Just double-click and go!
+- **Works with many file types** - PDF, Word (.docx), Text files, CSV, and more
+- **Save your work** - Create projects to organize different document sets
+- **Smart answers** - Gets answers from your documents, not the internet
+- **Shows sources** - See exactly where the answer came from
 
-That’s it—no manual terminal steps required.
+---
 
-## Quick start (macOS / Linux)
+## 📋 Requirements
 
+- **Python 3.11 or newer** - Download from https://www.python.org/downloads/
+- **OpenAI API key** - Get one free at https://platform.openai.com/signup
+- **Internet connection** - Needed to process documents and get answers
+
+---
+
+## 🔧 Advanced Setup (Optional)
+
+If the simple launcher doesn't work, you can run it manually:
+
+**Windows:**
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
 python app.py
 ```
 
-The Gradio UI appears in your browser; use it exactly as on Windows.
-On macOS you can also double-click `start_app.command` (after running
-`chmod +x start_app.command` once) for the same automated setup.
+**Mac/Linux:**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python app.py
+```
 
 ## Configure your OpenAI credentials
 
@@ -86,14 +108,27 @@ OPENAI_API_KEY=sk-REPLACE_ME
 
 ## Supported file types
 
-| Extension           | Loader              |
-| ------------------- | ------------------- |
-| `.pdf`              | `PyPDFLoader`       |
-| `.txt`, `.md`, `.rtf` | `TextLoader`     |
-| `.csv`, `.tsv`      | `CSVLoader`         |
-| `.docx`             | `Docx2txtLoader`    |
+| Extension           | Loader              | Status |
+| ------------------- | ------------------- | ------ |
+| `.pdf`              | `PyPDFLoader`       | ✅ Built-in |
+| `.txt`, `.md`, `.rtf` | `TextLoader`     | ✅ Built-in |
+| `.csv`, `.tsv`      | `CSVLoader`         | ✅ Built-in |
+| `.docx`             | `Docx2txtLoader`    | ✅ Built-in |
+| `.xlsx`, `.xls`     | `UnstructuredExcelLoader` | ⚠️ Optional (requires `openpyxl`) |
+| `.pptx`, `.ppt`     | `UnstructuredPowerPointLoader` | ⚠️ Optional (requires `python-pptx`) |
+| `.html`, `.htm`     | `BSHTMLLoader`      | ⚠️ Optional (falls back to text) |
+| `.json`             | Text parsing        | ⚠️ Basic support |
 
-Unknown extensions fall back to plain-text parsing.
+**Unknown extensions** fall back to plain-text parsing.
+
+### Adding Excel/PowerPoint Support
+
+To enable Excel and PowerPoint support, install additional dependencies:
+```bash
+pip install openpyxl python-pptx unstructured[excel] unstructured[ppt]
+```
+
+> 💡 **Note:** The app works without these - Excel/PowerPoint files will be skipped with a warning if dependencies are missing.
 
 ## Project layout
 
@@ -123,9 +158,48 @@ ignored automatically and will be re-generated locally as needed.
 - **No relevant context:** Upload more documents or rephrase the question; the
   retriever filters out low-similarity matches by default.
 
-## Sharing the project
+## 📦 Sharing the Project
 
-Zip the folder (excluding `.venv/` if present) or share the Git repo. Recipients
-can double-click `start_app.bat` (Windows) or `start_app.command` (macOS, after
-`chmod +x start_app.command`) or follow the manual steps above
-to get started immediately.
+### Easy Way (Recommended):
+
+**Windows:**
+- Double-click `CREATE_ZIP.bat` - it will create a clean ZIP file automatically!
+
+**Mac/Linux:**
+- Run `chmod +x CREATE_ZIP.sh` once
+- Then double-click `CREATE_ZIP.sh` or run `./CREATE_ZIP.sh`
+
+### Manual Way:
+
+**Windows:**
+1. Right-click the project folder
+2. Select "Send to" → "Compressed (zipped) folder"
+3. **IMPORTANT:** Before sharing, make sure the ZIP doesn't include:
+   - `.venv` folder (if it exists)
+   - `projects` folder (contains your personal data)
+   - `.env` file (contains your API key - keep it private!)
+
+**Mac:**
+1. Right-click the project folder
+2. Select "Compress [folder name]"
+3. **IMPORTANT:** Same exclusions as Windows above
+
+### What to Include in the ZIP:
+✅ `app.py`  
+✅ `start_app.bat` and `start_app.command`  
+✅ `start_app.py`  
+✅ `requirements.txt`  
+✅ `readme.md` and `GETTING_STARTED.md`  
+✅ `src/` folder (all files inside)  
+✅ `.gitignore`  
+
+### What NOT to Include:
+❌ `.venv/` folder (too large, will be recreated)  
+❌ `projects/` folder (personal data)  
+❌ `.env` file (your API key - keep it secret!)  
+❌ `__pycache__/` folders  
+
+**Recipients can then:**
+1. Unzip the folder
+2. Double-click `start_app.bat` (Windows) or `start_app.command` (Mac)
+3. Follow the same setup steps

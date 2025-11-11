@@ -27,6 +27,7 @@ def print_header() -> None:
     print("=" * 68)
     print(" Document RAG Assistant launcher".center(68))
     print("=" * 68)
+    print("\nThis will set up everything automatically. Please wait...\n")
 
 
 def run_command(
@@ -114,7 +115,11 @@ def ensure_dependencies() -> None:
 
 def launch_app() -> None:
     python_for_app = VENV_PY
-    print("\nLaunching the assistant… (press Ctrl+C to stop)")
+    print("\n" + "=" * 68)
+    print(" Launching the assistant...".center(68))
+    print("=" * 68)
+    print("\n✅ Setup complete! The app will open in your browser shortly.")
+    print("   (Press Ctrl+C to stop the app)\n")
     os.environ.setdefault("PYTHONUNBUFFERED", "1")
     subprocess.call([str(python_for_app), str(ROOT / "app.py")], cwd=str(ROOT))
 
@@ -130,8 +135,23 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\nOperation cancelled by user.")
+        print("\n\nOperation cancelled by user.")
+        print("You can close this window.")
     except subprocess.CalledProcessError as exc:
-        print(f"\nCommand failed with exit code {exc.returncode}: {' '.join(exc.cmd)}")
+        print(f"\n\n❌ Error: Command failed with exit code {exc.returncode}")
+        print(f"Command: {' '.join(exc.cmd)}")
+        print("\nTroubleshooting:")
+        print("1. Make sure Python 3.11+ is installed")
+        print("2. Check that you have internet connection")
+        print("3. Try running again - sometimes it's a temporary issue")
+        input("\nPress Enter to close...")
         sys.exit(exc.returncode)
+    except Exception as exc:
+        print(f"\n\n❌ Unexpected error: {exc}")
+        print("\nTroubleshooting:")
+        print("1. Make sure Python 3.11+ is installed")
+        print("2. Check the error message above")
+        print("3. Try deleting the .venv folder and running again")
+        input("\nPress Enter to close...")
+        sys.exit(1)
 
