@@ -39,13 +39,20 @@ def run_command(
 ) -> subprocess.CompletedProcess[str]:
     if not quiet:
         print(f"\n$ {' '.join(args)}")
-    return subprocess.run(
+    result = subprocess.run(
         args,
         cwd=str(cwd or ROOT),
-        check=True,
+        check=False,  # Don't raise on error, we'll handle it
         text=True,
         capture_output=capture_output,
     )
+    if result.returncode != 0:
+        # Re-raise with captured output for better error messages
+        exc = subprocess.CalledProcessError(result.returncode, args)
+        exc.stdout = result.stdout
+        exc.stderr = result.stderr
+        raise exc
+    return result
 
 
 def requirements_fingerprint() -> str | None:
@@ -93,9 +100,12 @@ def ensure_dependencies() -> None:
         "install",
         "--upgrade",
         "pip",
+        "setuptools",
+        "wheel",
     ]
     run_command(pip_args)
 
+    # Install dependencies using only pre-built wheels to avoid compilation issues
     install_args = [
         str(VENV_PY),
         "-m",
@@ -103,10 +113,34 @@ def ensure_dependencies() -> None:
         "install",
         "--no-input",
         "--disable-pip-version-check",
+        "--upgrade",
+        "--only-binary", ":all:",  # Force use of pre-built wheels only
+        "--prefer-binary",  # Prefer binary wheels when available
         "-r",
         str(REQUIREMENTS),
     ]
-    run_command(install_args)
+    try:
+        # Capture output to detect compilation errors
+        result = subprocess.run(
+            install_args,
+            cwd=str(ROOT),
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            # Print the output so user can see what went wrong
+            if result.stdout:
+                print(result.stdout)
+            if result.stderr:
+                print(result.stderr, file=sys.stderr)
+            # Re-raise with captured output
+            exc = subprocess.CalledProcessError(result.returncode, install_args)
+            exc.stdout = result.stdout
+            exc.stderr = result.stderr
+            raise exc
+    except subprocess.CalledProcessError:
+        raise  # Re-raise to be caught by main error handler
 
     if fingerprint is not None:
         STAMP_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -140,10 +174,47 @@ if __name__ == "__main__":
     except subprocess.CalledProcessError as exc:
         print(f"\n\n❌ Error: Command failed with exit code {exc.returncode}")
         print(f"Command: {' '.join(exc.cmd)}")
+        
+        # Check if it's a compilation error
+        error_output = ""
+        if hasattr(exc, 'stderr') and exc.stderr:
+            error_output = exc.stderr.lower()
+        elif hasattr(exc, 'stdout') and exc.stdout:
+            error_output = exc.stdout.lower()
+        
+        is_compilation_error = any(
+            keyword in error_output
+            for keyword in [
+                "mesonpy",
+                "numpy",
+                "gcc",
+                "cl.exe",
+                "compiler",
+                "metadata-generation-failed",
+                "cannot find the file specified",
+                "el sistema no puede encontrar",
+            ]
+        )
+        
         print("\nTroubleshooting:")
-        print("1. Make sure Python 3.11+ is installed")
-        print("2. Check that you have internet connection")
-        print("3. Try running again - sometimes it's a temporary issue")
+        if is_compilation_error:
+            print("⚠️  This looks like a compilation error (trying to build from source).")
+            print("   This usually happens when pre-built packages aren't available.")
+            print("\n   Solutions:")
+            print("   1. Make sure you have Python 3.11 or 3.12 (not 3.13+)")
+            print("   2. Try deleting the .venv folder and running again")
+            print("   3. Make sure you have internet connection")
+            print("   4. Try updating pip: python -m pip install --upgrade pip")
+            print("\n   If the problem persists:")
+            print("   - Delete the .venv folder completely")
+            print("   - Make sure you're using Python 3.11 or 3.12")
+            print("   - Run the launcher again")
+        else:
+            print("1. Make sure Python 3.11+ is installed")
+            print("2. Check that you have internet connection")
+            print("3. Try deleting the .venv folder and running again")
+            print("4. Try running again - sometimes it's a temporary issue")
+        
         input("\nPress Enter to close...")
         sys.exit(exc.returncode)
     except Exception as exc:
