@@ -358,122 +358,83 @@ def run_command_with_capture(
 ) -> subprocess.CompletedProcess[str]:
     """
     Run a command with real-time output display AND capture output for error logging.
-    This allows users to see progress while still capturing errors.
+    Uses a simple, reliable approach: capture output and print it line-by-line.
+    Combines stdout and stderr since pip outputs errors to both.
     """
     if not quiet:
         print(f"\n$ {' '.join(args)}")
     
-    import threading
-    from queue import Queue
+    # Use Popen to read line-by-line and print in real-time
+    # Combine stderr into stdout since pip outputs errors to both
+    process = subprocess.Popen(
+        args,
+        cwd=str(cwd or ROOT),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,  # Redirect stderr to stdout to capture everything
+        text=True,
+        bufsize=1,  # Line buffered
+        universal_newlines=True,
+    )
     
-    stdout_lines = []
-    stderr_lines = []
-    stdout_queue = Queue()
-    stderr_queue = Queue()
+    # Capture all output lines
+    output_lines = []
     
-    def read_output(pipe, queue, lines_list):
-        """Read from pipe and add to both queue (for display) and list (for capture)"""
-        try:
-            for line in iter(pipe.readline, ''):
-                if line:
-                    line_str = line.rstrip()
-                    lines_list.append(line_str)
-                    queue.put(line_str)
-            pipe.close()
-        except Exception:
-            pass
-        finally:
-            queue.put(None)  # Signal end
-    
+    # Read and print output line by line
     try:
-        process = subprocess.Popen(
-            args,
-            cwd=str(cwd or ROOT),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,  # Line buffered
-        )
+        # Read all output line by line (this blocks until process completes or pipe closes)
+        for line in iter(process.stdout.readline, ''):
+            if line:
+                line = line.rstrip('\n\r')
+                output_lines.append(line)
+                print(line)  # Print in real-time
+                sys.stdout.flush()  # Ensure immediate display
         
-        # Start threads to read output
-        stdout_thread = threading.Thread(
-            target=read_output,
-            args=(process.stdout, stdout_queue, stdout_lines)
-        )
-        stderr_thread = threading.Thread(
-            target=read_output,
-            args=(process.stderr, stderr_queue, stderr_lines)
-        )
-        
-        stdout_thread.daemon = True
-        stderr_thread.daemon = True
-        stdout_thread.start()
-        stderr_thread.start()
-        
-        # Print output in real-time
-        stdout_done = False
-        stderr_done = False
-        while not stdout_done or not stderr_done:
-            if not stdout_done:
-                try:
-                    line = stdout_queue.get(timeout=0.1)
-                    if line is None:
-                        stdout_done = True
-                    else:
-                        print(line)
-                except:
-                    pass
-            
-            if not stderr_done:
-                try:
-                    line = stderr_queue.get(timeout=0.1)
-                    if line is None:
-                        stderr_done = True
-                    else:
-                        print(line, file=sys.stderr)
-                except:
-                    pass
-        
-        # Wait for process to complete
+        # Wait for process to complete (should already be done, but ensure)
         return_code = process.wait()
         
-        # Wait for threads to finish
-        stdout_thread.join(timeout=1)
-        stderr_thread.join(timeout=1)
+        # Close the pipe
+        process.stdout.close()
         
-        # Create result object
-        result = subprocess.CompletedProcess(
-            args,
-            return_code,
-            stdout='\n'.join(stdout_lines),
-            stderr='\n'.join(stderr_lines),
-        )
-        
-        if return_code != 0:
-            exc = subprocess.CalledProcessError(return_code, args)
-            exc.stdout = result.stdout
-            exc.stderr = result.stderr
-            raise exc
-        
-        return result
-        
-    except subprocess.CalledProcessError:
-        raise
+    except BrokenPipeError:
+        # Process closed stdout, wait for it to finish
+        return_code = process.wait()
     except Exception as e:
-        # Fallback to simple capture if threading fails
-        result = subprocess.run(
-            args,
-            cwd=str(cwd or ROOT),
-            check=False,
-            text=True,
-            capture_output=True,
-        )
-        if result.returncode != 0:
-            exc = subprocess.CalledProcessError(result.returncode, args)
-            exc.stdout = result.stdout
-            exc.stderr = result.stderr
-            raise exc
-        return result
+        # If reading fails, wait for process and capture what we can
+        try:
+            return_code = process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            # Process hung, kill it
+            try:
+                process.kill()
+                process.wait(timeout=5)
+            except:
+                pass
+            return_code = 1
+            output_lines.append(f"Process timed out or error reading output: {e}")
+        except:
+            return_code = 1
+            output_lines.append(f"Error reading process output: {e}")
+    
+    # Combine all output (stdout + stderr since we redirected)
+    full_output = '\n'.join(output_lines)
+    
+    # Create result object
+    result = subprocess.CompletedProcess(
+        args,
+        return_code,
+        stdout=full_output,
+        stderr="",  # Already included in stdout
+    )
+    
+    if return_code != 0:
+        # Create exception with full output in both stdout and stderr
+        # This ensures error detection works regardless of where we check
+        exc = subprocess.CalledProcessError(return_code, args)
+        exc.stdout = full_output
+        exc.stderr = full_output  # Put in stderr too for compatibility
+        raise exc
+    
+    return result
 
 
 def read_requirements_file(file_path: Path) -> list[str]:
@@ -1126,12 +1087,20 @@ def ensure_dependencies() -> None:
                     # Installation failed - we have captured output
                     print(f"\n⚠️  Installation strategy '{strategy['name']}' failed (exit code: {exc.returncode})")
                     
+                    # Get error output from either stdout or stderr (we capture both)
+                    error_output = ""
+                    if hasattr(exc, 'stdout') and exc.stdout:
+                        error_output = exc.stdout
+                    elif hasattr(exc, 'stderr') and exc.stderr:
+                        error_output = exc.stderr
+                    
                     # Show last few lines of error for user
-                    if exc.stderr:
-                        error_lines = exc.stderr.strip().split('\n')
+                    if error_output and error_output.strip():
+                        error_lines = error_output.strip().split('\n')
                         if len(error_lines) > 0:
                             print("\n   Last error messages:")
-                            for line in error_lines[-5:]:  # Show last 5 lines
+                            # Show last 10 lines (more than before)
+                            for line in error_lines[-10:]:
                                 if line.strip():
                                     print(f"   {line}")
                     
@@ -1206,17 +1175,23 @@ if __name__ == "__main__":
         print(f"\n\n❌ Error: Command failed with exit code {exc.returncode}")
         print(f"Command: {' '.join(exc.cmd)}")
         
-        # Show error output if available
-        if hasattr(exc, 'stderr') and exc.stderr and exc.stderr.strip():
+        # Show error output if available (check both stdout and stderr)
+        error_output_text = ""
+        if hasattr(exc, 'stdout') and exc.stdout and exc.stdout.strip():
+            error_output_text = exc.stdout
+        elif hasattr(exc, 'stderr') and exc.stderr and exc.stderr.strip():
+            error_output_text = exc.stderr
+        
+        if error_output_text:
             print("\n" + "=" * 68)
             print(" Error Output:".center(68))
             print("=" * 68)
-            # Show last 20 lines to avoid overwhelming the user
-            error_lines = exc.stderr.strip().split('\n')
-            if len(error_lines) > 20:
-                print("   (Showing last 20 lines of error output)")
+            # Show last 30 lines to avoid overwhelming the user but show enough context
+            error_lines = error_output_text.strip().split('\n')
+            if len(error_lines) > 30:
+                print("   (Showing last 30 lines of error output)")
                 print("   (Full error saved to error_log.txt)\n")
-                for line in error_lines[-20:]:
+                for line in error_lines[-30:]:
                     if line.strip():
                         print(f"   {line}")
             else:
@@ -1225,12 +1200,15 @@ if __name__ == "__main__":
                         print(f"   {line}")
             print("=" * 68)
         
-        # Log the error
+        # Log the error - combine stdout and stderr for analysis
         error_output = ""
-        if hasattr(exc, 'stderr') and exc.stderr:
-            error_output = exc.stderr.lower()
         if hasattr(exc, 'stdout') and exc.stdout:
-            error_output += " " + exc.stdout.lower()
+            error_output = exc.stdout.lower()
+        if hasattr(exc, 'stderr') and exc.stderr:
+            if error_output:
+                error_output += " " + exc.stderr.lower()
+            else:
+                error_output = exc.stderr.lower()
         
         context = {
             "Command": " ".join(exc.cmd),
