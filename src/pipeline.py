@@ -82,6 +82,7 @@ def _build_messages(
     question: str,
     context_block: str,
     history_block: str,
+    custom_instructions: str | None = None,
 ) -> List[BaseMessage]:
     system_prompt = (
         "You are a meticulous research assistant analyzing documents. "
@@ -92,6 +93,11 @@ def _build_messages(
         "Only say 'I do not have enough information' if the context truly contains no relevant information "
         "that could help answer the question, even indirectly."
     )
+    
+    # Append custom instructions if provided
+    if custom_instructions and custom_instructions.strip():
+        system_prompt += f"\n\nAdditional instructions from the user:\n{custom_instructions.strip()}"
+    
     user_prompt = (
         f"Conversation so far:\n{history_block}\n\n"
         f"Context from documents:\n{context_block}\n\n"
@@ -525,6 +531,7 @@ class RAGPipeline:
         question: str,
         docs: Sequence[Document],
         chat_history: Sequence[tuple[str, str]],
+        custom_instructions: str | None = None,
     ) -> Generator[str, None, None]:
         self._ensure_clients()
         if self._llm is None:
@@ -532,7 +539,7 @@ class RAGPipeline:
 
         context = self._format_context(docs)
         history_block = _format_history(chat_history, self.config.history_turns)
-        messages = _build_messages(question, context, history_block)
+        messages = _build_messages(question, context, history_block, custom_instructions)
 
         response = ""
         for chunk in self._llm.stream(messages):

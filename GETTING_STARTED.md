@@ -10,19 +10,20 @@ This is a simple document assistant that lets you upload files and ask questions
 
 **Windows:**
 1. Go to https://www.python.org/downloads/
-2. Download Python 3.11 or newer
+2. Download Python 3.13.3, 3.12, or 3.14 (all work great!)
 3. **IMPORTANT:** When installing, check the box that says "Add Python to PATH"
 4. Click "Install Now"
 
 **Mac:**
 1. Go to https://www.python.org/downloads/mac-osx/
-2. Download Python 3.11 or newer
+2. Download Python 3.13.3, 3.12, or 3.14 (all work great!)
 3. Run the installer and follow the instructions
 
 **How to check if you have Python:**
 - Windows: Open Command Prompt, type `python --version` and press Enter
 - Mac: Open Terminal, type `python3 --version` and press Enter
-- If you see a version number (like "Python 3.11.5"), you're good!
+- If you see a version number (like "Python 3.13.3" or "Python 3.14.0"), you're good!
+- Python 3.11 or newer will work, but 3.13.3 or 3.14 is recommended
 
 ---
 

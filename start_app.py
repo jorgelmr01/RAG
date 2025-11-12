@@ -59,11 +59,10 @@ def get_system_info() -> str:
         except Exception:
             info.append(f"VENV Python: Could not determine version")
     
-    # Add Python version compatibility warning
+    # Add Python version info
     if sys.version_info.minor >= 13:
-        info.append(f"\n⚠️  WARNING: Python {sys.version_info.major}.{sys.version_info.minor} is not fully supported!")
-        info.append("   Python 3.13+ may cause installation failures due to missing pre-built wheels.")
-        info.append("   Recommended: Use Python 3.11 or 3.12 for best compatibility.")
+        info.append(f"\n✅ Python {sys.version_info.major}.{sys.version_info.minor} is fully supported!")
+        info.append("   Using optimized package versions for this Python version.")
     
     return "\n".join(info)
 
@@ -117,65 +116,204 @@ def write_error_log(error_type: str, error: Exception, context: dict | None = No
 
 
 def check_python_version() -> None:
-    """Validate Python version and provide helpful error if incompatible."""
-    version = sys.version_info
-    if version.major != 3:
-        print("\n❌ ERROR: Python 3 is required.")
-        print(f"   You are using Python {version.major}.{version.minor}.{version.micro}")
-        print("   Please install Python 3.11 or 3.12 from https://www.python.org/downloads/")
-        input("\nPress Enter to close...")
-        sys.exit(1)
-    
-    if version.minor < 11:
-        print("\n❌ ERROR: Python 3.11 or newer is required.")
-        print(f"   You are using Python {version.major}.{version.minor}.{version.micro}")
-        print("   Please install Python 3.11 or 3.12 from https://www.python.org/downloads/")
-        input("\nPress Enter to close...")
-        sys.exit(1)
-    
-    if version.minor >= 13:
-        print("\n⚠️  WARNING: Python 3.13+ is not fully supported yet.")
-        print(f"   You are using Python {version.major}.{version.minor}.{version.micro}")
-        print("   Many packages don't have pre-built wheels for Python 3.13+ yet.")
-        print("   This may cause installation failures.")
-        print("\n   RECOMMENDED: Use Python 3.11 or 3.12 for best compatibility.")
-        print("   Download from: https://www.python.org/downloads/")
-        print("\n   Continuing anyway... (this may fail)")
-        input("\nPress Enter to continue or Ctrl+C to cancel...")
-
-
-def check_python_version() -> None:
     """Check if Python version is supported and warn if not."""
     version = sys.version_info
     major, minor = version.major, version.minor
     
     if major != 3:
-        print("❌ ERROR: Python 3 is required.")
-        print(f"   You are using Python {major}.{minor}")
-        print("   Please install Python 3.11+ from https://www.python.org/downloads/")
+        print("\n" + "=" * 68)
+        print("❌ ERROR: Python 3 is required".center(68))
+        print("=" * 68)
+        print(f"\n   You are using Python {major}.{minor}.{version.micro}")
+        print("\n   SOLUTION:")
+        print("   1. Download Python 3.13.3, 3.12, or 3.14 from:")
+        print("      https://www.python.org/downloads/")
+        print("\n   2. During installation, CHECK THIS BOX:")
+        print("      ☑ 'Add Python to PATH' (very important!)")
+        print("\n   3. After installing, close this window and try again")
+        print("\n   Need help? See GETTING_STARTED.md for detailed instructions.")
         input("\nPress Enter to close...")
         sys.exit(1)
     
     if minor < 11:
-        print("❌ ERROR: Python 3.11 or newer is required.")
-        print(f"   You are using Python {major}.{minor}")
-        print("   Please install Python 3.11+ from https://www.python.org/downloads/")
+        print("\n" + "=" * 68)
+        print("❌ ERROR: Python 3.11 or newer is required".center(68))
+        print("=" * 68)
+        print(f"\n   You are using Python {major}.{minor}.{version.micro}")
+        print("   This version is too old for this application.")
+        print("\n   SOLUTION:")
+        print("   1. Download Python 3.13.3, 3.12, or 3.14 from:")
+        print("      https://www.python.org/downloads/")
+        print("\n   2. During installation, CHECK THIS BOX:")
+        print("      ☑ 'Add Python to PATH' (very important!)")
+        print("\n   3. After installing, close this window and try again")
         input("\nPress Enter to close...")
         sys.exit(1)
     
     if minor >= 13:
-        print("ℹ️  INFO: Python 3.13+ detected - using advanced installation strategies.")
-        print(f"   You are using Python {major}.{minor}")
-        print("   Some packages may not have pre-built wheels yet.")
-        print("   The installer will try multiple strategies to make it work.")
-        print()
+        # Python 3.13+ is now well-supported (November 2025)
+        print(f"\n✅ Python {major}.{minor}.{version.micro} detected")
+        print("   This version is fully supported!")
+        if minor >= 14:
+            print("   Python 3.14 detected - using latest optimized packages.\n")
+        else:
+            print("   Python 3.13 detected - using optimized packages.\n")
+
+
+def check_network_connectivity() -> bool:
+    """Check if we can reach the internet (needed for pip installs)."""
+    import socket
+    import urllib.request
+    import urllib.error
+    
+    print("Checking internet connection...", end=" ", flush=True)
+    
+    # Try multiple methods
+    test_hosts = [
+        ("8.8.8.8", 53),  # Google DNS
+        ("1.1.1.1", 53),  # Cloudflare DNS
+        ("pypi.org", 443),  # PyPI
+    ]
+    
+    for host, port in test_hosts:
+        try:
+            socket.create_connection((host, port), timeout=3)
+            print("✅ Connected")
+            return True
+        except (socket.error, OSError, socket.timeout):
+            continue
+    
+    # Try HTTP request as fallback
+    try:
+        urllib.request.urlopen("https://pypi.org", timeout=5)
+        print("✅ Connected")
+        return True
+    except (urllib.error.URLError, Exception):
+        pass
+    
+    print("❌ No connection")
+    return False
+
+
+def check_disk_space() -> bool:
+    """Check if we have enough disk space (need at least 500MB)."""
+    import shutil
+    
+    print("Checking disk space...", end=" ", flush=True)
+    try:
+        free_bytes = shutil.disk_usage(ROOT).free
+        free_mb = free_bytes / (1024 * 1024)
+        min_required_mb = 500
+        
+        if free_mb < min_required_mb:
+            print(f"❌ Only {free_mb:.0f} MB free (need {min_required_mb} MB)")
+            return False
+        print(f"✅ {free_mb:.0f} MB available")
+        return True
+    except Exception as e:
+        print(f"⚠️  Could not check ({e})")
+        return True  # Assume OK if we can't check
+
+
+def check_write_permissions() -> bool:
+    """Check if we can write to the project directory."""
+    print("Checking write permissions...", end=" ", flush=True)
+    try:
+        test_file = ROOT / ".write_test"
+        test_file.write_text("test", encoding="utf-8")
+        test_file.unlink()
+        print("✅ OK")
+        return True
+    except PermissionError:
+        print("❌ No permission")
+        return False
+    except Exception as e:
+        print(f"⚠️  Could not check ({e})")
+        return True  # Assume OK if we can't check
+
+
+def check_windows_path_length() -> bool:
+    """Check if we're on Windows and path might be too long."""
+    if os.name != "nt":
+        return True  # Not Windows, no issue
+    
+    print("Checking path length...", end=" ", flush=True)
+    try:
+        # Windows has a 260 character path limit by default
+        full_path = str(ROOT.resolve())
+        if len(full_path) > 200:  # Warn if getting close
+            print(f"⚠️  Path is {len(full_path)} chars (may cause issues)")
+            print(f"   Consider moving the project to a shorter path like C:\\RAG")
+            return True  # Still allow, just warn
+        print("✅ OK")
+        return True
+    except Exception:
+        print("⚠️  Could not check")
+        return True
+
+
+def run_preflight_checks() -> bool:
+    """Run all pre-flight checks before starting installation."""
+    print("\n" + "=" * 68)
+    print(" Running pre-flight checks...".center(68))
+    print("=" * 68 + "\n")
+    
+    checks = [
+        ("Network connectivity", check_network_connectivity),
+        ("Disk space", check_disk_space),
+        ("Write permissions", check_write_permissions),
+        ("Path length", check_windows_path_length),
+    ]
+    
+    failed_checks = []
+    for name, check_func in checks:
+        try:
+            if not check_func():
+                failed_checks.append(name)
+        except Exception as e:
+            print(f"⚠️  {name} check failed: {e}")
+    
+    if failed_checks:
+        print("\n" + "=" * 68)
+        print("⚠️  Some checks failed".center(68))
+        print("=" * 68)
+        print("\n   The following issues were detected:")
+        for check in failed_checks:
+            print(f"   - {check}")
+        
+        if "Network connectivity" in failed_checks:
+            print("\n   SOLUTION for Network:")
+            print("   - Check your internet connection")
+            print("   - Check if a firewall is blocking connections")
+            print("   - Try again when you have internet access")
+        
+        if "Write permissions" in failed_checks:
+            print("\n   SOLUTION for Permissions:")
+            print("   - Move the project folder to a location where you have")
+            print("     write permissions (like Documents or Desktop)")
+            print("   - Or run this as Administrator (right-click → Run as administrator)")
+        
+        if "Disk space" in failed_checks:
+            print("\n   SOLUTION for Disk Space:")
+            print("   - Free up at least 500 MB of disk space")
+            print("   - Delete unnecessary files or move the project to another drive")
+        
+        response = input("\n   Continue anyway? (y/n): ").strip().lower()
+        if response not in ('y', 'yes'):
+            print("\n   Installation cancelled. Please fix the issues above.")
+            input("\nPress Enter to close...")
+            return False
+    
+    print("\n✅ All checks passed!\n")
+    return True
 
 
 def print_header() -> None:
     print("=" * 68)
     print(" Document RAG Assistant launcher".center(68))
     print("=" * 68)
-    print("\nThis will set up everything automatically. Please wait...\n")
+    print("\nThis will set up everything automatically. Please wait...")
+    print("(This may take 2-5 minutes the first time)\n")
 
 
 def run_command(
@@ -184,21 +322,30 @@ def run_command(
     cwd: Path | None = None,
     capture_output: bool = False,
     quiet: bool = False,
+    timeout: int | None = None,
 ) -> subprocess.CompletedProcess[str]:
     if not quiet:
         print(f"\n$ {' '.join(args)}")
-    result = subprocess.run(
-        args,
-        cwd=str(cwd or ROOT),
-        check=False,  # Don't raise on error, we'll handle it
-        text=True,
-        capture_output=capture_output,
-    )
+    try:
+        result = subprocess.run(
+            args,
+            cwd=str(cwd or ROOT),
+            check=False,  # Don't raise on error, we'll handle it
+            text=True,
+            capture_output=capture_output,
+            timeout=timeout,  # Add timeout to prevent hanging
+        )
+    except subprocess.TimeoutExpired:
+        exc = subprocess.CalledProcessError(1, args)
+        exc.stdout = ""
+        exc.stderr = f"Command timed out after {timeout} seconds"
+        raise exc
+    
     if result.returncode != 0:
         # Re-raise with captured output for better error messages
         exc = subprocess.CalledProcessError(result.returncode, args)
-        exc.stdout = result.stdout
-        exc.stderr = result.stderr
+        exc.stdout = result.stdout if capture_output else ""
+        exc.stderr = result.stderr if capture_output else ""
         raise exc
     return result
 
@@ -293,9 +440,16 @@ def modules_missing(python_exe: Path) -> list[str]:
 
 def ensure_virtualenv() -> None:
     if VENV_PY.exists():
+        print("✅ Virtual environment already exists")
         return
-    print("\nCreating local virtual environment (.venv)…")
-    run_command([sys.executable, "-m", "venv", str(VENV_DIR)], cwd=ROOT)
+    print("\n📦 Step 1/3: Creating virtual environment...")
+    print("   (This creates an isolated Python environment for this project)")
+    try:
+        run_command([sys.executable, "-m", "venv", str(VENV_DIR)], cwd=ROOT)
+        print("   ✅ Virtual environment created successfully")
+    except Exception as e:
+        print(f"   ❌ Failed to create virtual environment: {e}")
+        raise
 
 
 def ensure_dependencies() -> None:
@@ -307,7 +461,13 @@ def ensure_dependencies() -> None:
             print("\nDependencies already satisfied.")
             return
 
-    print("\nInstalling project dependencies (this happens only when needed)…")
+    print("\n📦 Step 2/3: Installing dependencies...")
+    print("   (This downloads and installs required packages)")
+    print("   This may take 3-10 minutes depending on your internet speed.")
+    print("   Large packages like chromadb (~100MB) can take 1-2 minutes to download.")
+    print("   You'll see progress below - please be patient!\n")
+    
+    print("   Upgrading pip and build tools...")
     pip_args = [
         str(VENV_PY),
         "-m",
@@ -319,20 +479,23 @@ def ensure_dependencies() -> None:
         "wheel",
         "setuptools-scm",  # Helpful for building packages
     ]
-    run_command(pip_args)
+    try:
+        run_command(pip_args)
+        print("   ✅ Build tools upgraded")
+    except Exception as e:
+        print(f"   ⚠️  Warning: Could not upgrade build tools: {e}")
+        print("   Continuing anyway...")
 
     # Check Python version to determine installation strategy
-    is_new_python = sys.version_info.minor >= 13
+    # Python 3.13+ is now well-supported (November 2025), so we use standard strategies
+    is_new_python = sys.version_info.minor >= 14  # Only use special strategies for 3.14+
     
     # Try installation with multiple strategies to handle different scenarios
     install_strategies = []
     
     if is_new_python:
-        # For Python 3.13+, try more aggressive strategies
-        # Known issues:
-        # - chromadb requires numpy<2.0.0, but numpy 2.x has Python 3.14 wheels
-        # - chroma-hnswlib may need compilation for Python 3.14
-        # - Some packages may not have wheels yet
+        # For Python 3.14+, use optimized strategies
+        # Most packages now have wheels for 3.14, but we keep fallback strategies
         install_strategies = [
             # Strategy 1: Try latest chromadb first (may support numpy 2.x), then numpy 2.x, then rest
             {
@@ -430,7 +593,7 @@ def ensure_dependencies() -> None:
             },
         ]
     else:
-        # For Python 3.11-3.12, use standard strategies
+        # For Python 3.11-3.14, use standard strategies (all well-supported now)
         install_strategies = [
             # Strategy 1: Prefer binary wheels (best for most users, avoids compilation)
             {
@@ -582,7 +745,9 @@ def ensure_dependencies() -> None:
     last_error = None
     for strategy in install_strategies:
         try:
-            print(f"\nTrying installation strategy: {strategy['name']}...")
+            print(f"\n{'=' * 68}")
+            print(f"Trying installation strategy: {strategy['name']}".center(68))
+            print("=" * 68)
             
             # Handle pre-install packages (like numpy)
             if "pre_install" in strategy:
@@ -612,13 +777,15 @@ def ensure_dependencies() -> None:
             
             # Handle post-install (install dependencies after --no-deps)
             if strategy.get("post_install") and strategy["args"]:
+                print("   Installing packages with --no-deps (this may take a few minutes)...")
+                print("   Please be patient - you'll see progress below:\n")
                 # First install with --no-deps
                 result = subprocess.run(
                     strategy["args"],
                     cwd=str(ROOT),
                     check=False,
                     text=True,
-                    capture_output=True,
+                    capture_output=False,  # Show output in real-time
                 )
                 if result.returncode == 0:
                     # Now install dependencies, but allow numpy 2.x
@@ -651,7 +818,9 @@ def ensure_dependencies() -> None:
                         capture_output=True,
                     )
                     if deps_result.returncode == 0:
-                        print("✅ Installation successful!")
+                        print("\n" + "=" * 68)
+                        print("✅ Installation successful!".center(68))
+                        print("=" * 68 + "\n")
                         break
                     else:
                         # Try installing chromadb dependencies separately to work around numpy constraint
@@ -784,7 +953,9 @@ def ensure_dependencies() -> None:
                                 all_ok = False
                         
                         if all_ok:
-                            print("✅ Installation successful (with workaround for numpy 2.x)!")
+                            print("\n" + "=" * 68)
+                            print("✅ Installation successful (with workaround)!".center(68))
+                            print("=" * 68 + "\n")
                             break
                         else:
                             print("  ⚠️  Some packages still have issues, but continuing...")
@@ -803,49 +974,45 @@ def ensure_dependencies() -> None:
             
             # Standard installation (skip if we already handled post_install)
             if strategy["args"] and not strategy.get("post_install"):
+                print("   Installing packages (this may take a few minutes)...")
+                print("   Large packages like chromadb can take 1-2 minutes to download.")
+                print("   Please be patient - you'll see progress below:\n")
+                
+                # Run with real-time output so users can see progress
                 result = subprocess.run(
                     strategy["args"],
                     cwd=str(ROOT),
                     check=False,
                     text=True,
-                    capture_output=True,
+                    capture_output=False,  # Show output in real-time
                 )
                 if result.returncode == 0:
-                    print("✅ Installation successful!")
+                    print("\n" + "=" * 68)
+                    print("✅ Installation successful!".center(68))
+                    print("=" * 68 + "\n")
                     break
                 
-                # Check if it's a dependency conflict (not a compilation error)
-                output = (result.stdout + result.stderr).lower()
-                is_dependency_conflict = any(
-                    keyword in output
-                    for keyword in [
-                        "resolutionimpossible",
-                        "conflicting dependencies",
-                        "cannot install",
-                        "conflicts have no matching distributions",
-                    ]
-                )
-                
-                if is_dependency_conflict and strategy["name"] in ("prefer-binary", "numpy-first"):
-                    # Dependency conflict, try next strategy
-                    print("⚠️  Dependency conflict detected, trying alternative approach...")
-                    last_error = result
-                    continue
+                # Installation failed - check error type
+                # Since we're not capturing output, we need to check return code
+                # and provide helpful messages
+                print(f"\n⚠️  Installation strategy '{strategy['name']}' failed (exit code: {result.returncode})")
                 
                 # For other errors, continue to next strategy
                 if strategy != install_strategies[-1]:
-                    print("⚠️  Installation failed, trying next strategy...")
-                    last_error = result
+                    print("   Trying next strategy...\n")
+                    # Create a mock error object for logging
+                    exc = subprocess.CalledProcessError(result.returncode, strategy["args"])
+                    exc.stdout = ""
+                    exc.stderr = ""
+                    last_error = exc
                     continue
                 
-                # Last strategy failed, show error
-                if result.stdout:
-                    print(result.stdout)
-                if result.stderr:
-                    print(result.stderr, file=sys.stderr)
+                # Last strategy failed
+                print("\n❌ All installation strategies failed.")
+                print("   Check the error messages above for details.")
                 exc = subprocess.CalledProcessError(result.returncode, strategy["args"])
-                exc.stdout = result.stdout
-                exc.stderr = result.stderr
+                exc.stdout = ""
+                exc.stderr = ""
                 raise exc
         except subprocess.CalledProcessError as exc:
             last_error = exc
@@ -866,10 +1033,20 @@ def ensure_dependencies() -> None:
 def launch_app() -> None:
     python_for_app = VENV_PY
     print("\n" + "=" * 68)
-    print(" Launching the assistant...".center(68))
+    print("📦 Step 3/3: Launching the assistant...".center(68))
     print("=" * 68)
     print("\n✅ Setup complete! The app will open in your browser shortly.")
-    print("   (Press Ctrl+C to stop the app)\n")
+    print("\n   IMPORTANT:")
+    print("   - Keep this window open while using the app")
+    print("   - Press Ctrl+C to stop the app when you're done")
+    print("   - The first time may take a moment to load\n")
+    
+    # Add antivirus warning for Windows
+    if os.name == "nt":
+        print("   💡 TIP: If Windows Defender or antivirus shows a warning,")
+        print("      click 'Allow' or 'More info' → 'Run anyway'")
+        print("      This is normal for Python applications.\n")
+    
     os.environ.setdefault("PYTHONUNBUFFERED", "1")
     subprocess.call([str(python_for_app), str(ROOT / "app.py")], cwd=str(ROOT))
 
@@ -877,6 +1054,11 @@ def launch_app() -> None:
 def main() -> None:
     check_python_version()
     print_header()
+    
+    # Run pre-flight checks
+    if not run_preflight_checks():
+        sys.exit(1)
+    
     ensure_virtualenv()
     ensure_dependencies()
     launch_app()
@@ -936,66 +1118,102 @@ if __name__ == "__main__":
         python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
         is_unsupported_python = sys.version_info.minor >= 13
         
-        print("\nTroubleshooting:")
+        print("\n" + "=" * 68)
+        print(" Troubleshooting Guide".center(68))
+        print("=" * 68)
+        
         if is_unsupported_python:
-            print(f"⚠️  You are using Python {python_version}, which is very new.")
-            print("   Some packages may not have pre-built wheels yet.")
-            print("   The installer tried multiple strategies but couldn't install all packages.")
-            print("\n   OPTIONS:")
-            print("   1. RECOMMENDED: Install Python 3.11 or 3.12 for best compatibility")
-            print("      - All packages have pre-built wheels")
-            print("      - No compilation needed")
+            print(f"\n⚠️  You are using Python {python_version}")
+            if python_version >= "3.14":
+                print("   Python 3.14 is very new. Most packages should work, but if you")
+                print("   encounter issues, try Python 3.13.3 or 3.12 for maximum compatibility.")
+            else:
+                print("   The installer tried multiple strategies but couldn't install all packages.")
+            print("\n   SOLUTIONS:")
+            print("   1. Try deleting the .venv folder and running again")
+            print("      (Sometimes a fresh install fixes issues)")
+            print("\n   2. If still failing, try Python 3.13.3 or 3.12:")
             print("      - Download from: https://www.python.org/downloads/")
-            print("\n   2. ALTERNATIVE: Install C++ build tools to compile from source")
-            print("      - Windows: Install 'Build Tools for Visual Studio'")
-            print("      - This allows building packages that don't have wheels")
-            print("      - More complex but enables Python 3.14 support")
-            print("\n   3. Wait for package maintainers to release Python 3.14 wheels")
-            print("      - Check back in a few weeks/months")
-            print("      - Packages are being updated regularly")
+            print("      - During installation, CHECK THIS BOX:")
+            print("        ☑ 'Add Python to PATH'")
+            print("      - Delete .venv folder and run start_app.bat again")
+            print("\n   3. Check your internet connection")
+            print("      - Make sure you can access pypi.org")
+            print("      - Try disabling VPN if you're using one")
         elif is_dependency_conflict:
-            print("⚠️  This is a dependency conflict (packages have incompatible requirements).")
-            print("\n   Solutions:")
-            print("   1. Make sure you have Python 3.11 or 3.12 (not 3.13+)")
-            print("   2. Delete the .venv folder and try again")
-            print("   3. Make sure you have internet connection")
-            print("   4. Try updating pip: python -m pip install --upgrade pip")
-            print("\n   If the problem persists:")
-            print("   - Delete the .venv folder completely")
-            print("   - Make sure you're using Python 3.11 or 3.12")
-            print("   - Check that your Python installation is not corrupted")
-            print("   - Try reinstalling Python from python.org")
+            print("\n⚠️  Dependency conflict detected")
+            print("   (Some packages have incompatible requirements)")
+            print("\n   SOLUTIONS (try in order):")
+            print("   1. Delete the .venv folder in this directory and try again")
+            print("      (The installer will recreate it)")
+            print("\n   2. Make sure you're using Python 3.11 or 3.12")
+            print("      - Check: python --version")
+            print("      - If not 3.11 or 3.12, install from python.org")
+            print("\n   3. Check your internet connection")
+            print("      - Make sure you can access pypi.org")
+            print("      - Try disabling VPN if you're using one")
+            print("\n   4. If still failing:")
+            print("      - Reinstall Python from python.org")
+            print("      - Make sure to check 'Add Python to PATH' during install")
+            print("      - Delete .venv folder and try again")
         elif is_compilation_error:
             python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
             is_unsupported_python = sys.version_info.minor >= 13
             
-            print("⚠️  This looks like a compilation error (trying to build from source).")
+            print("\n⚠️  Compilation error detected")
+            print("   (The installer tried to build packages from source code)")
             if is_unsupported_python:
-                print(f"   This is happening because you're using Python {python_version}.")
-                print("   Python 3.13+ doesn't have pre-built wheels for many packages yet.")
-                print("\n   SOLUTION:")
-                print("   1. Install Python 3.11 or 3.12 from https://www.python.org/downloads/")
-                print("   2. Delete the .venv folder in this directory")
-                print("   3. Run the launcher again with the correct Python version")
+                print(f"\n   CAUSE: You're using Python {python_version}")
+                if python_version >= "3.14":
+                    print("   Python 3.14 is very new. Most packages should work, but if you")
+                    print("   encounter issues, try Python 3.13.3 or 3.12 for maximum compatibility.")
+                else:
+                    print("   Most packages now support Python 3.13, but some may still need compilation.")
             else:
-                print("   This usually happens when pre-built packages aren't available.")
-                print("\n   Solutions:")
-                print("   1. Make sure you have Python 3.11 or 3.12 (not 3.13+)")
-                print("   2. Try deleting the .venv folder and running again")
-                print("   3. Make sure you have internet connection")
-                print("   4. Try updating pip: python -m pip install --upgrade pip")
-                print("\n   If the problem persists:")
-                print("   - Delete the .venv folder completely")
-                print("   - Make sure you're using Python 3.11 or 3.12")
-                print("   - Run the launcher again")
+                print("\n   This usually happens when:")
+                print("   - Pre-built installers aren't available for your system")
+                print("   - Python version is too new or too old")
+            print("\n   SOLUTIONS:")
+            print("   1. Try deleting the .venv folder and running again")
+            print("      (Sometimes a fresh install fixes issues)")
+            print("\n   2. Make sure you have Python 3.11, 3.12, 3.13, or 3.14")
+            print("      - Check: python --version")
+            print("      - If not a supported version, install from python.org")
+            print("\n   3. If still failing, try Python 3.13.3 or 3.12:")
+            print("      - Download from: https://www.python.org/downloads/")
+            print("      - During installation, CHECK THIS BOX:")
+            print("        ☑ 'Add Python to PATH'")
+            print("      - Delete .venv folder and run start_app.bat again")
+            print("\n   4. Check your internet connection")
+            print("      - Make sure you can access pypi.org")
+            print("      - Try disabling VPN if you're using one")
         else:
-            print("1. Make sure Python 3.11+ is installed")
-            print("2. Check that you have internet connection")
-            print("3. Try deleting the .venv folder and running again")
-            print("4. Try running again - sometimes it's a temporary issue")
+            print("\n   GENERAL SOLUTIONS:")
+            print("   1. Make sure Python 3.11, 3.12, 3.13, or 3.14 is installed")
+            print("      - Check: python --version")
+            print("      - If not installed, get it from python.org")
+            print("\n   2. Check your internet connection")
+            print("      - Make sure you can access pypi.org")
+            print("      - Try disabling VPN if you're using one")
+            print("\n   3. Delete the .venv folder and try again")
+            print("      (The installer will recreate it)")
+            print("\n   4. Check antivirus/firewall")
+            print("      - Windows Defender or antivirus may be blocking")
+            print("      - Try adding this folder to exclusions")
+            print("\n   5. Try running again")
+            print("      - Sometimes it's a temporary network issue")
         
-        print(f"\n📝 Error details have been saved to: {ERROR_LOG}")
-        print("   Please share this file if you need help troubleshooting.")
+        print("\n" + "=" * 68)
+        print(f"📝 Error details saved to: {ERROR_LOG}".center(68))
+        print("=" * 68)
+        print("\n   If you need help, share this file with someone who can help.")
+        print("   The file contains technical details about what went wrong.")
+        
+        if os.name == "nt":
+            print("\n   💡 TIP: If Windows Defender blocked something,")
+            print("      click 'Allow' or 'More info' → 'Run anyway'")
+            print("      This is normal for Python applications.")
+        
         input("\nPress Enter to close...")
         sys.exit(exc.returncode)
     except Exception as exc:

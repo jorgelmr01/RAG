@@ -420,7 +420,7 @@ def ingest_documents(files, append, chunk_size, chunk_overlap, embedding_model, 
     )
 
 
-def respond(message, chat_history, top_k, max_context_sections, score_threshold, temperature, state: Optional[RAGPipeline]):
+def respond(message, chat_history, top_k, max_context_sections, score_threshold, temperature, custom_instructions, state: Optional[RAGPipeline]):
     pipeline = _ensure_pipeline(state)
     pipeline.ensure_project_selected()
     indexed_docs = _format_indexed_documents(pipeline.render_loaded_sources())
@@ -474,7 +474,9 @@ def respond(message, chat_history, top_k, max_context_sections, score_threshold,
     answer = ""
     sources_markdown = pipeline.render_sources(docs)
     indexed_docs = _format_indexed_documents(pipeline.render_loaded_sources())
-    for chunk in pipeline.stream_answer(message, docs, chat_history[:-1]):
+    # Use custom_instructions if provided, otherwise None
+    instructions = custom_instructions.strip() if custom_instructions and custom_instructions.strip() else None
+    for chunk in pipeline.stream_answer(message, docs, chat_history[:-1], custom_instructions=instructions):
         answer += chunk
         chat_history[-1] = (message, answer)
         yield (
@@ -562,6 +564,20 @@ def build_interface(config: AppConfig = CONFIG) -> gr.Blocks:
                 "You can also create a `.env` file in this folder with `OPENAI_API_KEY=sk-...`"
             )
             api_key_button = gr.Button("Set API Key", variant="primary")
+        
+        with gr.Accordion("Agent Instructions", open=False):
+            gr.Markdown(
+                "**Leave blank for standard questions.** Only add instructions here if you want to customize "
+                "how the AI responds (e.g., tone, format, specific requirements). "
+                "These instructions will be added to the system prompt for all questions."
+            )
+            custom_instructions_input = gr.Textbox(
+                label="Custom Instructions (Optional)",
+                placeholder="Leave blank for standard questions. Example: 'Always provide answers in bullet points and use a professional tone.'",
+                lines=4,
+                value="",
+                info="Optional: Add personalized instructions for how the AI should respond. Leave blank to use default behavior.",
+            )
         
         with gr.Accordion("Advanced Settings", open=False):
             embedding_model_input = gr.Dropdown(
@@ -704,13 +720,13 @@ def build_interface(config: AppConfig = CONFIG) -> gr.Blocks:
 
         submit.click(
             respond,
-            inputs=[user_input, chatbot, top_k_input, max_context_sections_input, score_threshold_input, temperature_input, state],
+            inputs=[user_input, chatbot, top_k_input, max_context_sections_input, score_threshold_input, temperature_input, custom_instructions_input, state],
             outputs=[chatbot, state, sources_panel, source_overview, user_input],
             queue=True,
         )
         user_input.submit(
             respond,
-            inputs=[user_input, chatbot, top_k_input, max_context_sections_input, score_threshold_input, temperature_input, state],
+            inputs=[user_input, chatbot, top_k_input, max_context_sections_input, score_threshold_input, temperature_input, custom_instructions_input, state],
             outputs=[chatbot, state, sources_panel, source_overview, user_input],
             queue=True,
         )
