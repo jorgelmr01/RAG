@@ -350,6 +350,132 @@ def run_command(
     return result
 
 
+def run_command_with_capture(
+    args: list[str],
+    *,
+    cwd: Path | None = None,
+    quiet: bool = False,
+) -> subprocess.CompletedProcess[str]:
+    """
+    Run a command with real-time output display AND capture output for error logging.
+    This allows users to see progress while still capturing errors.
+    """
+    if not quiet:
+        print(f"\n$ {' '.join(args)}")
+    
+    import threading
+    from queue import Queue
+    
+    stdout_lines = []
+    stderr_lines = []
+    stdout_queue = Queue()
+    stderr_queue = Queue()
+    
+    def read_output(pipe, queue, lines_list):
+        """Read from pipe and add to both queue (for display) and list (for capture)"""
+        try:
+            for line in iter(pipe.readline, ''):
+                if line:
+                    line_str = line.rstrip()
+                    lines_list.append(line_str)
+                    queue.put(line_str)
+            pipe.close()
+        except Exception:
+            pass
+        finally:
+            queue.put(None)  # Signal end
+    
+    try:
+        process = subprocess.Popen(
+            args,
+            cwd=str(cwd or ROOT),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,  # Line buffered
+        )
+        
+        # Start threads to read output
+        stdout_thread = threading.Thread(
+            target=read_output,
+            args=(process.stdout, stdout_queue, stdout_lines)
+        )
+        stderr_thread = threading.Thread(
+            target=read_output,
+            args=(process.stderr, stderr_queue, stderr_lines)
+        )
+        
+        stdout_thread.daemon = True
+        stderr_thread.daemon = True
+        stdout_thread.start()
+        stderr_thread.start()
+        
+        # Print output in real-time
+        stdout_done = False
+        stderr_done = False
+        while not stdout_done or not stderr_done:
+            if not stdout_done:
+                try:
+                    line = stdout_queue.get(timeout=0.1)
+                    if line is None:
+                        stdout_done = True
+                    else:
+                        print(line)
+                except:
+                    pass
+            
+            if not stderr_done:
+                try:
+                    line = stderr_queue.get(timeout=0.1)
+                    if line is None:
+                        stderr_done = True
+                    else:
+                        print(line, file=sys.stderr)
+                except:
+                    pass
+        
+        # Wait for process to complete
+        return_code = process.wait()
+        
+        # Wait for threads to finish
+        stdout_thread.join(timeout=1)
+        stderr_thread.join(timeout=1)
+        
+        # Create result object
+        result = subprocess.CompletedProcess(
+            args,
+            return_code,
+            stdout='\n'.join(stdout_lines),
+            stderr='\n'.join(stderr_lines),
+        )
+        
+        if return_code != 0:
+            exc = subprocess.CalledProcessError(return_code, args)
+            exc.stdout = result.stdout
+            exc.stderr = result.stderr
+            raise exc
+        
+        return result
+        
+    except subprocess.CalledProcessError:
+        raise
+    except Exception as e:
+        # Fallback to simple capture if threading fails
+        result = subprocess.run(
+            args,
+            cwd=str(cwd or ROOT),
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            exc = subprocess.CalledProcessError(result.returncode, args)
+            exc.stdout = result.stdout
+            exc.stderr = result.stderr
+            raise exc
+        return result
+
+
 def read_requirements_file(file_path: Path) -> list[str]:
     """
     Read requirements.txt file with robust encoding detection.
@@ -780,13 +906,19 @@ def ensure_dependencies() -> None:
                 print("   Installing packages with --no-deps (this may take a few minutes)...")
                 print("   Please be patient - you'll see progress below:\n")
                 # First install with --no-deps
-                result = subprocess.run(
-                    strategy["args"],
-                    cwd=str(ROOT),
-                    check=False,
-                    text=True,
-                    capture_output=False,  # Show output in real-time
-                )
+                try:
+                    result = run_command_with_capture(
+                        strategy["args"],
+                        cwd=ROOT,
+                        quiet=True,
+                    )
+                except subprocess.CalledProcessError as exc:
+                    result = subprocess.CompletedProcess(
+                        strategy["args"],
+                        exc.returncode,
+                        exc.stdout or "",
+                        exc.stderr or "",
+                    )
                 if result.returncode == 0:
                     # Now install dependencies, but allow numpy 2.x
                     print("  Installing dependencies (allowing numpy 2.x)...")
@@ -978,42 +1110,41 @@ def ensure_dependencies() -> None:
                 print("   Large packages like chromadb can take 1-2 minutes to download.")
                 print("   Please be patient - you'll see progress below:\n")
                 
-                # Run with real-time output so users can see progress
-                result = subprocess.run(
-                    strategy["args"],
-                    cwd=str(ROOT),
-                    check=False,
-                    text=True,
-                    capture_output=False,  # Show output in real-time
-                )
-                if result.returncode == 0:
-                    print("\n" + "=" * 68)
-                    print("✅ Installation successful!".center(68))
-                    print("=" * 68 + "\n")
-                    break
-                
-                # Installation failed - check error type
-                # Since we're not capturing output, we need to check return code
-                # and provide helpful messages
-                print(f"\n⚠️  Installation strategy '{strategy['name']}' failed (exit code: {result.returncode})")
-                
-                # For other errors, continue to next strategy
-                if strategy != install_strategies[-1]:
-                    print("   Trying next strategy...\n")
-                    # Create a mock error object for logging
-                    exc = subprocess.CalledProcessError(result.returncode, strategy["args"])
-                    exc.stdout = ""
-                    exc.stderr = ""
-                    last_error = exc
-                    continue
-                
-                # Last strategy failed
-                print("\n❌ All installation strategies failed.")
-                print("   Check the error messages above for details.")
-                exc = subprocess.CalledProcessError(result.returncode, strategy["args"])
-                exc.stdout = ""
-                exc.stderr = ""
-                raise exc
+                # Run with real-time output AND capture for error logging
+                try:
+                    result = run_command_with_capture(
+                        strategy["args"],
+                        cwd=ROOT,
+                        quiet=True,  # Don't print command again
+                    )
+                    if result.returncode == 0:
+                        print("\n" + "=" * 68)
+                        print("✅ Installation successful!".center(68))
+                        print("=" * 68 + "\n")
+                        break
+                except subprocess.CalledProcessError as exc:
+                    # Installation failed - we have captured output
+                    print(f"\n⚠️  Installation strategy '{strategy['name']}' failed (exit code: {exc.returncode})")
+                    
+                    # Show last few lines of error for user
+                    if exc.stderr:
+                        error_lines = exc.stderr.strip().split('\n')
+                        if len(error_lines) > 0:
+                            print("\n   Last error messages:")
+                            for line in error_lines[-5:]:  # Show last 5 lines
+                                if line.strip():
+                                    print(f"   {line}")
+                    
+                    # For other errors, continue to next strategy
+                    if strategy != install_strategies[-1]:
+                        print("   Trying next strategy...\n")
+                        last_error = exc
+                        continue
+                    
+                    # Last strategy failed
+                    print("\n❌ All installation strategies failed.")
+                    print("   Check the error messages above for details.")
+                    raise exc
         except subprocess.CalledProcessError as exc:
             last_error = exc
             if strategy == install_strategies[-1]:
@@ -1074,6 +1205,25 @@ if __name__ == "__main__":
     except subprocess.CalledProcessError as exc:
         print(f"\n\n❌ Error: Command failed with exit code {exc.returncode}")
         print(f"Command: {' '.join(exc.cmd)}")
+        
+        # Show error output if available
+        if hasattr(exc, 'stderr') and exc.stderr and exc.stderr.strip():
+            print("\n" + "=" * 68)
+            print(" Error Output:".center(68))
+            print("=" * 68)
+            # Show last 20 lines to avoid overwhelming the user
+            error_lines = exc.stderr.strip().split('\n')
+            if len(error_lines) > 20:
+                print("   (Showing last 20 lines of error output)")
+                print("   (Full error saved to error_log.txt)\n")
+                for line in error_lines[-20:]:
+                    if line.strip():
+                        print(f"   {line}")
+            else:
+                for line in error_lines:
+                    if line.strip():
+                        print(f"   {line}")
+            print("=" * 68)
         
         # Log the error
         error_output = ""
