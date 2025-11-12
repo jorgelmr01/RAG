@@ -10,6 +10,13 @@ import sys
 import traceback
 from pathlib import Path
 
+# Try importing chardet for encoding detection, but don't fail if it's not available
+try:
+    import chardet
+    HAS_CHARDET = True
+except ImportError:
+    HAS_CHARDET = False
+
 
 ROOT = Path(__file__).resolve().parent
 VENV_DIR = ROOT / ".venv"
@@ -196,6 +203,73 @@ def run_command(
     return result
 
 
+def read_requirements_file(file_path: Path) -> list[str]:
+    """
+    Read requirements.txt file with robust encoding detection.
+    Handles UTF-8, UTF-16, and other common encodings.
+    """
+    if not file_path.exists():
+        return []
+    
+    # Try multiple encodings in order of likelihood
+    encodings_to_try = []
+    
+    # If chardet is available, try to detect encoding first
+    if HAS_CHARDET:
+        try:
+            with open(file_path, "rb") as f:
+                raw_data = f.read()
+                detected = chardet.detect(raw_data)
+                if detected and detected.get("encoding"):
+                    encodings_to_try.append(detected["encoding"])
+        except Exception:
+            pass  # Fall back to manual detection
+    
+    # Add common encodings
+    encodings_to_try.extend([
+        "utf-8",
+        "utf-8-sig",  # UTF-8 with BOM
+        "utf-16-le",  # UTF-16 Little Endian (Windows default)
+        "utf-16-be",  # UTF-16 Big Endian
+        "utf-16",     # UTF-16 with BOM detection
+        "latin-1",    # Fallback that never fails
+        "cp1252",     # Windows-1252
+    ])
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    encodings_to_try = [enc for enc in encodings_to_try if enc not in seen and not seen.add(enc)]
+    
+    last_error = None
+    for encoding in encodings_to_try:
+        try:
+            with open(file_path, "r", encoding=encoding) as f:
+                lines = f.readlines()
+                # Filter out empty lines and comments
+                packages = [line.strip() for line in lines if line.strip() and not line.strip().startswith("#")]
+                return packages
+        except (UnicodeDecodeError, UnicodeError) as e:
+            last_error = e
+            continue
+        except Exception as e:
+            last_error = e
+            continue
+    
+    # If all encodings failed, try with error handling
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+            packages = [line.strip() for line in lines if line.strip() and not line.strip().startswith("#")]
+            print(f"⚠️  Warning: Read requirements.txt with error replacement (some characters may be lost)")
+            return packages
+    except Exception as e:
+        raise RuntimeError(
+            f"Could not read requirements.txt file. "
+            f"Tried encodings: {', '.join(encodings_to_try[:5])}. "
+            f"Last error: {last_error or e}"
+        ) from (last_error or e)
+
+
 def requirements_fingerprint() -> str | None:
     if not REQUIREMENTS.exists():
         return None
@@ -378,15 +452,15 @@ def ensure_dependencies() -> None:
             {
                 "name": "standard",
                 "args": [
-                    str(VENV_PY),
-                    "-m",
-                    "pip",
-                    "install",
-                    "--no-input",
-                    "--disable-pip-version-check",
+        str(VENV_PY),
+        "-m",
+        "pip",
+        "install",
+        "--no-input",
+        "--disable-pip-version-check",
                     "--upgrade",
-                    "-r",
-                    str(REQUIREMENTS),
+        "-r",
+        str(REQUIREMENTS),
                 ],
             },
         ]
@@ -394,9 +468,12 @@ def ensure_dependencies() -> None:
     def install_individual_packages() -> bool:
         """Try installing packages one by one to find which ones work."""
         print("\nTrying to install packages individually...")
-        packages = []
-        with open(REQUIREMENTS, "r", encoding="utf-8") as f:
-            packages = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+        try:
+            packages = read_requirements_file(REQUIREMENTS)
+        except Exception as e:
+            print(f"❌ Error reading requirements.txt: {e}")
+            write_error_log("File Reading Error", e, {"File": str(REQUIREMENTS)})
+            return False
         
         failed_packages = []
         for package in packages:
