@@ -577,19 +577,49 @@ def ensure_dependencies() -> None:
     # Python 3.13+ is now well-supported (November 2025), so we use standard strategies
     is_new_python = sys.version_info.minor >= 14  # Only use special strategies for 3.14+
     
+    # For Python 3.14, create a modified requirements file with chromadb < 1.0.0
+    # because chromadb 1.0.0+ requires onnxruntime which doesn't have Python 3.14 wheels
+    requirements_file = REQUIREMENTS
+    if is_new_python:
+        print("   Creating Python 3.14 compatible requirements...")
+        try:
+            # Read original requirements
+            original_packages = read_requirements_file(REQUIREMENTS)
+            
+            # Create modified requirements with chromadb < 1.0.0
+            modified_packages = []
+            for package in original_packages:
+                if package.startswith("chromadb"):
+                    # Replace with version constraint that excludes 1.0.0+
+                    modified_packages.append("chromadb>=0.5.4,<1.0.0")
+                    print(f"   ⚠️  Using chromadb < 1.0.0 for Python 3.14 (onnxruntime not available)")
+                else:
+                    modified_packages.append(package)
+            
+            # Write temporary requirements file
+            temp_requirements = ROOT / "requirements_py314.txt"
+            temp_requirements.write_text("\n".join(modified_packages) + "\n", encoding="utf-8")
+            requirements_file = temp_requirements
+            print("   ✅ Created Python 3.14 compatible requirements file")
+        except Exception as e:
+            print(f"   ⚠️  Warning: Could not create modified requirements: {e}")
+            print("   Using original requirements file (may fail if onnxruntime needed)")
+            requirements_file = REQUIREMENTS
+    
     # Try installation with multiple strategies to handle different scenarios
     install_strategies = []
     
     if is_new_python:
         # For Python 3.14+, use optimized strategies
-        # Most packages now have wheels for 3.14, but we keep fallback strategies
+        # CRITICAL: chromadb 1.0.0+ requires onnxruntime which doesn't have Python 3.14 wheels
+        # So we must use chromadb < 1.0.0 for Python 3.14
         install_strategies = [
-            # Strategy 1: Try latest chromadb first (may support numpy 2.x), then numpy 2.x, then rest
+            # Strategy 1: Install chromadb < 1.0.0 first (doesn't require onnxruntime)
+            # Then install rest from requirements (pip will see chromadb is already installed)
             {
-                "name": "latest-chromadb-numpy2",
+                "name": "chromadb-older-version",
                 "pre_install": [
-                    "numpy>=2.0.0",  # numpy 2.x has Python 3.14 wheels
-                    "chromadb>=1.3.0",  # Try latest chromadb (may have better numpy 2.x support)
+                    "chromadb>=0.5.4,<1.0.0",  # Use older version that doesn't require onnxruntime
                 ],
                 "args": [
                     str(VENV_PY),
@@ -601,8 +631,55 @@ def ensure_dependencies() -> None:
                     "--upgrade",
                     "--prefer-binary",
                     "-r",
-                    str(REQUIREMENTS),
+                    str(requirements_file),
                 ],
+            },
+            # Strategy 1b: Install chromadb < 1.0.0, then install rest without chromadb
+            {
+                "name": "chromadb-separate",
+                "pre_install": [
+                    "chromadb>=0.5.4,<1.0.0",  # Install compatible version first
+                ],
+                "args": [
+                    str(VENV_PY),
+                    "-m",
+                    "pip",
+                    "install",
+                    "--no-input",
+                    "--disable-pip-version-check",
+                    "--upgrade",
+                    "--prefer-binary",
+                    "docx2txt>=0.8",
+                    "gradio>=5.0.0",
+                    "langchain>=0.3.20",
+                    "langchain-chroma>=0.2.0",
+                    "langchain-community>=0.3.20",
+                    "langchain-openai>=0.2.0",
+                    "langchain-text-splitters>=0.3.20",
+                    "pypdf>=5.0.0",
+                    "python-dotenv>=1.0.1",
+                    "tiktoken>=0.8.0",
+                ],
+            },
+            # Strategy 2: Try installing chromadb without onnxruntime dependency
+            {
+                "name": "chromadb-no-onnx",
+                "pre_install": [
+                    "chromadb>=0.5.4,<1.0.0",  # Use version without onnxruntime requirement
+                ],
+                "args": [
+                    str(VENV_PY),
+                    "-m",
+                    "pip",
+                    "install",
+                    "--no-input",
+                    "--disable-pip-version-check",
+                    "--upgrade",
+                    "--prefer-binary",
+                    "--no-deps",  # Skip dependency resolution to avoid onnxruntime
+                    "chromadb>=0.5.4,<1.0.0",
+                ],
+                "post_install": True,  # Install other packages after
             },
             # Strategy 2: Install numpy 2.x first (has Python 3.14 wheels), then install with --no-deps to bypass constraints
             {
@@ -619,7 +696,7 @@ def ensure_dependencies() -> None:
                     "--prefer-binary",
                     "--no-deps",  # Skip dependency checking to allow numpy 2.x
                     "-r",
-                    str(REQUIREMENTS),
+                    str(requirements_file),
                 ],
                 "post_install": True,  # Install dependencies separately after
             },
@@ -637,7 +714,7 @@ def ensure_dependencies() -> None:
                     "--upgrade",
                     "--prefer-binary",
                     "-r",
-                    str(REQUIREMENTS),
+                    str(requirements_file),
                 ],
             },
             # Strategy 4: Install packages individually to find what works
@@ -660,7 +737,7 @@ def ensure_dependencies() -> None:
                     "--prefer-binary",
                     "--upgrade-strategy", "eager",  # Try latest versions
                     "-r",
-                    str(REQUIREMENTS),
+                    str(requirements_file),
                 ],
             },
             # Strategy 6: Standard install (last resort)
@@ -675,12 +752,13 @@ def ensure_dependencies() -> None:
                     "--disable-pip-version-check",
                     "--upgrade",
                     "-r",
-                    str(REQUIREMENTS),
+                    str(requirements_file),
                 ],
             },
         ]
     else:
-        # For Python 3.11-3.14, use standard strategies (all well-supported now)
+        # For Python 3.11-3.13, use standard strategies (all well-supported now)
+        # For Python 3.14, we handle it above with special chromadb version
         install_strategies = [
             # Strategy 1: Prefer binary wheels (best for most users, avoids compilation)
             {
@@ -695,22 +773,22 @@ def ensure_dependencies() -> None:
                     "--upgrade",
                     "--prefer-binary",  # Prefer wheels but allow source if needed
                     "-r",
-                    str(REQUIREMENTS),
+                    str(requirements_file),
                 ],
             },
             # Strategy 2: No binary restrictions (fallback for dependency conflicts)
             {
                 "name": "standard",
                 "args": [
-        str(VENV_PY),
-        "-m",
-        "pip",
-        "install",
-        "--no-input",
-        "--disable-pip-version-check",
+                    str(VENV_PY),
+                    "-m",
+                    "pip",
+                    "install",
+                    "--no-input",
+                    "--disable-pip-version-check",
                     "--upgrade",
-        "-r",
-        str(REQUIREMENTS),
+                    "-r",
+                    str(requirements_file),
                 ],
             },
         ]
@@ -719,7 +797,7 @@ def ensure_dependencies() -> None:
         """Try installing packages one by one to find which ones work."""
         print("\nTrying to install packages individually...")
         try:
-            packages = read_requirements_file(REQUIREMENTS)
+            packages = read_requirements_file(requirements_file)
         except Exception as e:
             print(f"❌ Error reading requirements.txt: {e}")
             write_error_log("File Reading Error", e, {"File": str(REQUIREMENTS)})
@@ -881,8 +959,41 @@ def ensure_dependencies() -> None:
                         exc.stderr or "",
                     )
                 if result.returncode == 0:
-                    # Now install dependencies, but allow numpy 2.x
-                    print("  Installing dependencies (allowing numpy 2.x)...")
+                    # Now install remaining packages
+                    # For Python 3.14, chromadb < 1.0.0 is already installed, so skip it
+                    print("  Installing remaining packages...")
+                    
+                    # Determine chromadb version based on Python version
+                    if sys.version_info.minor >= 14:
+                        # Python 3.14: chromadb < 1.0.0 is already installed, don't reinstall
+                        packages_to_install = [
+                            "langchain>=0.3.20",
+                            "langchain-chroma>=0.2.0",
+                            "langchain-community>=0.3.20",
+                            "langchain-openai>=0.2.0",
+                            "langchain-text-splitters>=0.3.20",
+                            "gradio>=5.0.0",
+                            "docx2txt>=0.8",
+                            "pypdf>=5.0.0",
+                            "python-dotenv>=1.0.1",
+                            "tiktoken>=0.8.0",
+                        ]
+                    else:
+                        # Python 3.11-3.13: can use chromadb 1.0.0+
+                        packages_to_install = [
+                            "chromadb>=1.0.0",
+                            "langchain>=0.3.20",
+                            "langchain-chroma>=0.2.0",
+                            "langchain-community>=0.3.20",
+                            "langchain-openai>=0.2.0",
+                            "langchain-text-splitters>=0.3.20",
+                            "gradio>=5.0.0",
+                            "docx2txt>=0.8",
+                            "pypdf>=5.0.0",
+                            "python-dotenv>=1.0.1",
+                            "tiktoken>=0.8.0",
+                        ]
+                    
                     deps_result = subprocess.run(
                         [
                             str(VENV_PY),
@@ -893,18 +1004,7 @@ def ensure_dependencies() -> None:
                             "--disable-pip-version-check",
                             "--upgrade",
                             "--prefer-binary",
-                            "chromadb[all]",  # Install chromadb with all optional deps
-                            "langchain",
-                            "langchain-chroma",
-                            "langchain-community",
-                            "langchain-openai",
-                            "langchain-text-splitters",
-                            "gradio",
-                            "docx2txt",
-                            "pypdf",
-                            "python-dotenv",
-                            "tiktoken",
-                        ],
+                        ] + packages_to_install,
                         cwd=str(ROOT),
                         check=False,
                         text=True,
@@ -1065,8 +1165,64 @@ def ensure_dependencies() -> None:
                     last_error = subprocess.CalledProcessError(1, ["individual-packages"])
                     continue
             
-            # Standard installation (skip if we already handled post_install)
-            if strategy["args"] and not strategy.get("post_install"):
+            # Handle post_install_chromadb (install chromadb after other packages)
+            if strategy.get("post_install_chromadb") and strategy["args"]:
+                print("   Installing packages (excluding chromadb first)...")
+                print("   Please be patient - you'll see progress below:\n")
+                try:
+                    result = run_command_with_capture(
+                        strategy["args"],
+                        cwd=ROOT,
+                        quiet=True,
+                    )
+                    if result.returncode == 0:
+                        # Now install chromadb < 1.0.0 for Python 3.14
+                        print("  Installing chromadb (compatible version for Python 3.14)...")
+                        chromadb_result = subprocess.run(
+                            [
+                                str(VENV_PY),
+                                "-m",
+                                "pip",
+                                "install",
+                                "--no-input",
+                                "--disable-pip-version-check",
+                                "--upgrade",
+                                "--prefer-binary",
+                                "chromadb>=0.5.4,<1.0.0",
+                            ],
+                            cwd=str(ROOT),
+                            check=False,
+                            text=True,
+                            capture_output=True,
+                        )
+                        if chromadb_result.returncode == 0:
+                            print("\n" + "=" * 68)
+                            print("✅ Installation successful!".center(68))
+                            print("=" * 68 + "\n")
+                            break
+                        else:
+                            print(f"  ⚠️  chromadb installation failed, trying next strategy...")
+                            last_error = subprocess.CalledProcessError(
+                                chromadb_result.returncode,
+                                ["chromadb install"],
+                            )
+                            last_error.stdout = chromadb_result.stdout
+                            last_error.stderr = chromadb_result.stderr
+                            continue
+                    else:
+                        last_error = subprocess.CalledProcessError(
+                            result.returncode,
+                            strategy["args"],
+                        )
+                        last_error.stdout = result.stdout
+                        last_error.stderr = result.stderr
+                        continue
+                except subprocess.CalledProcessError as exc:
+                    last_error = exc
+                    continue
+            
+            # Standard installation (skip if we already handled post_install or post_install_chromadb)
+            if strategy["args"] and not strategy.get("post_install") and not strategy.get("post_install_chromadb"):
                 print("   Installing packages (this may take a few minutes)...")
                 print("   Large packages like chromadb can take 1-2 minutes to download.")
                 print("   Please be patient - you'll see progress below:\n")
