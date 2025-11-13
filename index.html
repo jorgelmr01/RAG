@@ -943,7 +943,7 @@
                     let actualEnd = end;
                     
                     // Try to break at sentence boundaries
-                    if (end < text.length) {
+                    if (end < textToChunk.length) {
                         const lastPeriod = chunk.lastIndexOf('. ');
                         const lastNewline = chunk.lastIndexOf('\n\n');
                         const breakPoint = Math.max(lastPeriod, lastNewline);
@@ -955,7 +955,7 @@
                             start = end - chunkOverlap;
                         }
                     } else {
-                        start = text.length;
+                        start = textToChunk.length;
                     }
                     
                     if (chunk.trim().length > 0) {
