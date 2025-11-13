@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document RAG Assistant - HTML Version</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .accordion {
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .accordion-header {
+            background: #f5f5f5;
+            padding: 15px 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .accordion-header:hover {
+            background: #eeeeee;
+        }
+
+        .accordion-content {
+            padding: 20px;
+            display: none;
+        }
+
+        .accordion-content.open {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        input[type="number"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.secondary {
+            background: #6c757d;
+        }
+
+        button.danger {
+            background: #dc3545;
+        }
+
+        .row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .row > * {
+            flex: 1;
+        }
+
+        .status-message {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .status-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .chat-container {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .chat-main {
+            flex: 3;
+        }
+
+        .chat-sidebar {
+            flex: 2;
+            min-width: 300px;
+        }
+
+        .chatbox {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            height: 500px;
+            overflow-y: auto;
+            padding: 20px;
+            background: #fafafa;
+            margin-bottom: 15px;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .message.user {
+            background: #e3f2fd;
+            margin-left: 20%;
+        }
+
+        .message.assistant {
+            background: #f1f8e9;
+            margin-right: 20%;
+        }
+
+        .message-header {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #555;
+        }
+
+        .message-content {
+            line-height: 1.6;
+        }
+
+        .sources-panel {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .sources-panel h3 {
+            margin-bottom: 10px;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .sources-list {
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px dashed #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider-container input[type="range"] {
+            flex: 1;
+        }
+
+        .slider-value {
+            min-width: 50px;
+            text-align: right;
+            font-weight: 600;
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-wrapper input[type="checkbox"] {
+            width: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 Document RAG Assistant</h1>
+            <p>HTML Version - No Installation Required</p>
+        </div>
+
+        <div class="content">
+            <div id="statusMessage" class="status-message hidden"></div>
+
+            <!-- Projects Section -->
+            <div class="accordion">
+                <div class="accordion-header" onclick="toggleAccordion(this)">
+                    <span>📁 Projects</span>
+                    <span>▼</span>
+                </div>
+                <div class="accordion-content open">
+                    <div class="row">
+                        <select id="projectSelect" style="flex: 3;">
+                            <option value="">No projects yet</option>
+                        </select>
+                        <button onclick="loadProject()" style="flex: 1;">Load Selected</button>
+                        <button onclick="refreshProjects()" class="secondary" style="flex: 1;">Refresh</button>
+                    </div>
+                    <div class="row">
+                        <input type="text" id="newProjectName" placeholder="e.g. client-a" style="flex: 3;">
+                        <button onclick="createProject()" style="flex: 1;">Create & Switch</button>
+                    </div>
+                    <div id="projectStatus" style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
+                        No project selected.
+                    </div>
+                </div>
+            </div>
+
+            <!-- API Key Section -->
+            <div class="accordion">
+                <div class="accordion-header" onclick="toggleAccordion(this)">
+                    <span>🔑 API Key</span>
+                    <span>▼</span>
+                </div>
+                <div class="accordion-content">
+                    <div class="form-group">
+                        <label for="apiKey">OpenAI API Key</label>
+                        <input type="password" id="apiKey" placeholder="sk-... (stored in browser only)">
+                    </div>
+                    <p style="font-size: 13px; color: #666; margin-bottom: 15px;">
+                        Get your API key: <a href="https://platform.openai.com/account/api-keys" target="_blank">https://platform.openai.com/account/api-keys</a><br>
+                        Your key is stored only in your browser and never shared.
+                    </p>
+                    <button onclick="setApiKey()">Set API Key</button>
+                    <div id="apiKeyStatus" style="margin-top: 10px;"></div>
+                </div>
+            </div>
+
+            <!-- Agent Instructions -->
+            <div class="accordion">
+                <div class="accordion-header" onclick="toggleAccordion(this)">
+                    <span>🤖 Agent Instructions</span>
+                    <span>▼</span>
+                </div>
+                <div class="accordion-content">
+                    <p style="font-size: 13px; color: #666; margin-bottom: 15px;">
+                        Leave blank for standard questions. Only add instructions if you want to customize how the AI responds.
+                    </p>
+                    <textarea id="customInstructions" placeholder="Example: Always provide answers in bullet points and use a professional tone."></textarea>
+                </div>
+            </div>
+
+            <!-- Advanced Settings -->
+            <div class="accordion">
+                <div class="accordion-header" onclick="toggleAccordion(this)">
+                    <span>⚙️ Advanced Settings</span>
+                    <span>▼</span>
+                </div>
+                <div class="accordion-content">
+                    <div class="form-group">
+                        <label for="embeddingModel">Embedding Model</label>
+                        <select id="embeddingModel">
+                            <option value="text-embedding-3-large">text-embedding-3-large (Recommended - Best Quality)</option>
+                            <option value="text-embedding-3-small">text-embedding-3-small (Faster & Cheaper)</option>
+                        </select>
+                    </div>
+
+                    <h4 style="margin: 20px 0 10px 0;">Chunking Settings</h4>
+                    <div class="form-group">
+                        <label for="chunkSize">Chunk Size (characters)</label>
+                        <input type="number" id="chunkSize" value="1500" min="100" max="10000" step="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="chunkOverlap">Chunk Overlap (characters)</label>
+                        <input type="number" id="chunkOverlap" value="300" min="0" max="5000" step="50">
+                    </div>
+
+                    <h4 style="margin: 20px 0 10px 0;">Retrieval Settings</h4>
+                    <div class="form-group">
+                        <label for="topK">Initial Chunks Retrieved</label>
+                        <input type="number" id="topK" value="8" min="1" max="50" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="maxContextSections">Max Context Sections</label>
+                        <input type="number" id="maxContextSections" value="12" min="1" max="30" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="scoreThreshold">Similarity Score Threshold</label>
+                        <div class="slider-container">
+                            <input type="range" id="scoreThreshold" min="0" max="1" step="0.05" value="0.5" oninput="updateSliderValue(this, 'scoreThresholdValue')">
+                            <span class="slider-value" id="scoreThresholdValue">0.5</span>
+                        </div>
+                    </div>
+
+                    <h4 style="margin: 20px 0 10px 0;">Response Settings</h4>
+                    <div class="form-group">
+                        <label for="temperature">Temperature</label>
+                        <div class="slider-container">
+                            <input type="range" id="temperature" min="0" max="1" step="0.1" value="0.2" oninput="updateSliderValue(this, 'temperatureValue')">
+                            <span class="slider-value" id="temperatureValue">0.2</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Document Upload -->
+            <div style="margin: 20px 0;">
+                <div class="row">
+                    <div class="file-input-wrapper" style="flex: 3;">
+                        <input type="file" id="fileInput" multiple accept=".pdf,.txt,.md,.docx,.csv">
+                    </div>
+                    <div style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" id="appendCheckbox">
+                            <label for="appendCheckbox" style="margin: 0;">Append to existing</label>
+                        </div>
+                        <button onclick="processDocuments()">Process Documents</button>
+                        <button onclick="clearKnowledge()" class="danger">Clear Project Knowledge</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Interface -->
+            <div class="chat-container">
+                <div class="chat-main">
+                    <div class="chatbox" id="chatbox">
+                        <div style="text-align: center; color: #999; padding: 20px;">
+                            No messages yet. Upload documents and ask questions!
+                        </div>
+                    </div>
+                    <div class="row">
+                        <textarea id="userInput" placeholder="Ask a question about your documents..." rows="4" style="flex: 4;" onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }"></textarea>
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
+                            <button onclick="sendMessage()">Send</button>
+                            <button onclick="clearChat()" class="secondary">Clear Chat</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="chat-sidebar">
+                    <div class="sources-panel">
+                        <h3>📄 Indexed Documents</h3>
+                        <div id="indexedDocuments" class="sources-list">No documents indexed yet.</div>
+                    </div>
+                    <div class="sources-panel">
+                        <h3>📚 Sources for Last Answer</h3>
+                        <div id="answerSources" class="sources-list">No responses yet.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+
+    <script>
+        // Initialize PDF.js
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+
+        // Application State
+        let state = {
+            apiKey: localStorage.getItem('openai_api_key') || '',
+            currentProject: null,
+            projects: [],
+            documents: [],
+            chunks: [],
+            chatHistory: [],
+            embeddingModel: 'text-embedding-3-large',
+            chunkSize: 1500,
+            chunkOverlap: 300,
+            topK: 8,
+            maxContextSections: 12,
+            scoreThreshold: 0.5,
+            temperature: 0.2
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            if (state.apiKey) {
+                document.getElementById('apiKey').value = state.apiKey;
+            }
+            loadProjects();
+            loadSettings();
+        });
+
+        // Accordion Toggle
+        function toggleAccordion(header) {
+            const content = header.nextElementSibling;
+            const isOpen = content.classList.contains('open');
+            document.querySelectorAll('.accordion-content').forEach(acc => acc.classList.remove('open'));
+            if (!isOpen) {
+                content.classList.add('open');
+            }
+        }
+
+        // Slider Value Update
+        function updateSliderValue(slider, valueId) {
+            document.getElementById(valueId).textContent = slider.value;
+        }
+
+        // Show Status Message
+        function showStatus(message, type = 'info') {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status-message ${type}`;
+            statusEl.classList.remove('hidden');
+            setTimeout(() => {
+                statusEl.classList.add('hidden');
+            }, 5000);
+        }
+
+        // API Key Management
+        function setApiKey() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                showStatus('⚠️ Please enter an API key.', 'error');
+                return;
+            }
+            if (!apiKey.startsWith('sk-')) {
+                showStatus('⚠️ API key should start with "sk-".', 'error');
+                return;
+            }
+            if (apiKey.length < 20) {
+                showStatus('⚠️ API key appears to be truncated. OpenAI keys are typically 51 characters long.', 'error');
+                return;
+            }
+            state.apiKey = apiKey;
+            localStorage.setItem('openai_api_key', apiKey);
+            document.getElementById('apiKeyStatus').innerHTML = '<span style="color: green;">✅ API key configured.</span>';
+            showStatus('✅ API key configured successfully.', 'success');
+        }
+
+        // Project Management
+        async function loadProjects() {
+            try {
+                const projects = await getProjectsFromStorage();
+                state.projects = projects;
+                const select = document.getElementById('projectSelect');
+                select.innerHTML = '<option value="">No projects yet</option>';
+                projects.forEach(project => {
+                    const option = document.createElement('option');
+                    option.value = project.name;
+                    option.textContent = project.displayName;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading projects:', error);
+            }
+        }
+
+        async function createProject() {
+            const name = document.getElementById('newProjectName').value.trim();
+            if (!name) {
+                showStatus('⚠️ Enter a project name to create.', 'error');
+                return;
+            }
+            const project = {
+                name: sanitizeProjectName(name),
+                displayName: name,
+                files: [],
+                chunks: 0
+            };
+            await saveProjectToStorage(project);
+            state.currentProject = project;
+            await loadProjects();
+            document.getElementById('projectSelect').value = project.name;
+            updateProjectStatus();
+            showStatus(`✅ Project "${name}" created.`, 'success');
+        }
+
+        async function loadProject() {
+            const select = document.getElementById('projectSelect');
+            const projectName = select.value;
+            if (!projectName) {
+                showStatus('⚠️ Select a project to load.', 'error');
+                return;
+            }
+            try {
+                const project = await getProjectFromStorage(projectName);
+                if (!project) {
+                    showStatus('⚠️ Project not found.', 'error');
+                    return;
+                }
+                state.currentProject = project;
+                state.chunks = await getChunksFromStorage(projectName);
+                updateProjectStatus();
+                updateIndexedDocuments();
+                showStatus(`✅ Loaded project "${project.displayName}".`, 'success');
+            } catch (error) {
+                showStatus('⚠️ Error loading project: ' + error.message, 'error');
+            }
+        }
+
+        async function refreshProjects() {
+            await loadProjects();
+            showStatus('✅ Projects refreshed.', 'success');
+        }
+
+        function sanitizeProjectName(name) {
+            return name.toLowerCase().replace(/[^a-z0-9._-]/g, '-').replace(/^-+|-+$/g, '');
+        }
+
+        function updateProjectStatus() {
+            const statusEl = document.getElementById('projectStatus');
+            if (!state.currentProject) {
+                statusEl.textContent = 'No project selected.';
+                return;
+            }
+            const fileCount = state.currentProject.files.length;
+            const chunkCount = state.currentProject.chunks;
+            statusEl.innerHTML = `<strong>Current project:</strong> ${state.currentProject.displayName}<br>${chunkCount} chunks across ${fileCount} source files.`;
+        }
+
+        // Document Processing
+        async function processDocuments() {
+            if (!state.apiKey) {
+                showStatus('⚠️ Please set your API key first.', 'error');
+                return;
+            }
+            if (!state.currentProject) {
+                showStatus('⚠️ Please create or select a project first.', 'error');
+                return;
+            }
+
+            const fileInput = document.getElementById('fileInput');
+            const files = fileInput.files;
+            if (files.length === 0) {
+                showStatus('⚠️ Please select at least one file.', 'error');
+                return;
+            }
+
+            const append = document.getElementById('appendCheckbox').checked;
+            if (!append) {
+                state.chunks = [];
+                state.currentProject.files = [];
+            }
+
+            showStatus('📄 Processing documents...', 'info');
+
+            try {
+                const embeddingModel = document.getElementById('embeddingModel').value;
+                state.embeddingModel = embeddingModel;
+                state.chunkSize = parseInt(document.getElementById('chunkSize').value);
+                state.chunkOverlap = parseInt(document.getElementById('chunkOverlap').value);
+
+                for (let file of files) {
+                    const text = await extractTextFromFile(file);
+                    if (!text || text.trim().length === 0) {
+                        showStatus(`⚠️ No text content found in ${file.name}.`, 'error');
+                        continue;
+                    }
+
+                    const chunks = chunkText(text, state.chunkSize, state.chunkOverlap);
+                    const embeddings = await generateEmbeddings(chunks, embeddingModel);
+
+                    for (let i = 0; i < chunks.length; i++) {
+                        const chunk = {
+                            id: generateId(),
+                            text: chunks[i],
+                            embedding: embeddings[i],
+                            source: file.name,
+                            project: state.currentProject.name
+                        };
+                        state.chunks.push(chunk);
+                    }
+
+                    if (!state.currentProject.files.includes(file.name)) {
+                        state.currentProject.files.push(file.name);
+                    }
+                }
+
+                state.currentProject.chunks = state.chunks.length;
+                await saveProjectToStorage(state.currentProject);
+                await saveChunksToStorage(state.currentProject.name, state.chunks);
+                updateProjectStatus();
+                updateIndexedDocuments();
+                showStatus(`✅ Processed ${files.length} file(s). Created ${state.chunks.length} chunks.`, 'success');
+                fileInput.value = '';
+            } catch (error) {
+                showStatus('⚠️ Error processing documents: ' + error.message, 'error');
+                console.error(error);
+            }
+        }
+
+        async function extractTextFromFile(file) {
+            const extension = file.name.split('.').pop().toLowerCase();
+            
+            if (extension === 'pdf') {
+                return await extractTextFromPDF(file);
+            } else if (extension === 'docx') {
+                return await extractTextFromDOCX(file);
+            } else if (['txt', 'md', 'csv'].includes(extension)) {
+                return await extractTextFromText(file);
+            } else {
+                // Try as text file
+                return await extractTextFromText(file);
+            }
+        }
+
+        async function extractTextFromPDF(file) {
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                let text = '';
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    text += textContent.items.map(item => item.str).join(' ') + '\n';
+                }
+                return text;
+            } catch (error) {
+                throw new Error(`Failed to extract text from PDF: ${error.message}`);
+            }
+        }
+
+        async function extractTextFromDOCX(file) {
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const result = await mammoth.extractRawText({ arrayBuffer });
+                return result.value;
+            } catch (error) {
+                throw new Error(`Failed to extract text from DOCX: ${error.message}`);
+            }
+        }
+
+        async function extractTextFromText(file) {
+            return await file.text();
+        }
+
+        function chunkText(text, chunkSize, chunkOverlap) {
+            const chunks = [];
+            let start = 0;
+            
+            while (start < text.length) {
+                const end = Math.min(start + chunkSize, text.length);
+                let chunk = text.substring(start, end);
+                
+                // Try to break at sentence boundaries
+                if (end < text.length) {
+                    const lastPeriod = chunk.lastIndexOf('. ');
+                    const lastNewline = chunk.lastIndexOf('\n\n');
+                    const breakPoint = Math.max(lastPeriod, lastNewline);
+                    if (breakPoint > chunkSize * 0.5) {
+                        chunk = chunk.substring(0, breakPoint + 1);
+                        start += breakPoint + 1 - chunkOverlap;
+                    } else {
+                        start += chunkSize - chunkOverlap;
+                    }
+                } else {
+                    start = text.length;
+                }
+                
+                if (chunk.trim().length > 0) {
+                    chunks.push(chunk.trim());
+                }
+            }
+            
+            return chunks;
+        }
+
+        async function generateEmbeddings(texts, model) {
+            const response = await fetch('https://api.openai.com/v1/embeddings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${state.apiKey}`
+                },
+                body: JSON.stringify({
+                    model: model,
+                    input: texts
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error?.message || 'Failed to generate embeddings');
+            }
+
+            const data = await response.json();
+            return data.data.map(item => item.embedding);
+        }
+
+        // Vector Search
+        function cosineSimilarity(vecA, vecB) {
+            let dotProduct = 0;
+            let normA = 0;
+            let normB = 0;
+            for (let i = 0; i < vecA.length; i++) {
+                dotProduct += vecA[i] * vecB[i];
+                normA += vecA[i] * vecA[i];
+                normB += vecB[i] * vecB[i];
+            }
+            return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+        }
+
+        async function searchSimilarChunks(query, topK, maxSections, threshold) {
+            if (state.chunks.length === 0) {
+                throw new Error('No documents indexed. Upload files first.');
+            }
+
+            const queryEmbedding = await generateEmbeddings([query], state.embeddingModel);
+            const queryVec = queryEmbedding[0];
+
+            const scoredChunks = state.chunks.map(chunk => ({
+                chunk: chunk,
+                score: cosineSimilarity(queryVec, chunk.embedding)
+            }));
+
+            scoredChunks.sort((a, b) => b.score - a.score);
+
+            const filtered = scoredChunks
+                .filter(item => item.score >= threshold)
+                .slice(0, maxSections);
+
+            if (filtered.length === 0 && scoredChunks.length > 0) {
+                return scoredChunks.slice(0, Math.min(maxSections, topK)).map(item => item.chunk);
+            }
+
+            return filtered.map(item => item.chunk);
+        }
+
+        // Chat Functionality
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            if (!state.apiKey) {
+                showStatus('⚠️ Please set your API key first.', 'error');
+                return;
+            }
+
+            if (state.chunks.length === 0) {
+                showStatus('⚠️ No documents indexed. Upload files first.', 'error');
+                return;
+            }
+
+            addMessageToChat('user', message);
+            input.value = '';
+
+            try {
+                const topK = parseInt(document.getElementById('topK').value);
+                const maxSections = parseInt(document.getElementById('maxContextSections').value);
+                const threshold = parseFloat(document.getElementById('scoreThreshold').value);
+                state.temperature = parseFloat(document.getElementById('temperature').value);
+
+                const relevantChunks = await searchSimilarChunks(message, topK, maxSections, threshold);
+                
+                if (relevantChunks.length === 0) {
+                    addMessageToChat('assistant', 'I could not find relevant information in the documents to answer this question. Try rephrasing or upload more documents.');
+                    updateAnswerSources([]);
+                    return;
+                }
+
+                const context = formatContext(relevantChunks);
+                const customInstructions = document.getElementById('customInstructions').value.trim();
+                
+                await streamResponse(message, context, customInstructions);
+                updateAnswerSources(relevantChunks);
+            } catch (error) {
+                addMessageToChat('assistant', '⚠️ Error: ' + error.message);
+                showStatus('⚠️ Error: ' + error.message, 'error');
+            }
+        }
+
+        function formatContext(chunks) {
+            return chunks.map((chunk, idx) => {
+                return `[${idx + 1}] ${chunk.source}\n${chunk.text.substring(0, 2000)}`;
+            }).join('\n\n');
+        }
+
+        async function streamResponse(question, context, customInstructions) {
+            const history = state.chatHistory.slice(-6).map(([q, a]) => `User: ${q}\nAssistant: ${a}`).join('\n\n');
+            
+            const systemPrompt = `You are a meticulous research assistant analyzing documents. Answer the user's question using the provided context. You may infer answers from the context even if not explicitly stated. Look for related information, synonyms, and contextual clues. Cite the supporting snippets with bracketed references like [1] tied to the context order. Only say 'I do not have enough information' if the context truly contains no relevant information that could help answer the question, even indirectly.${customInstructions ? '\n\nAdditional instructions from the user:\n' + customInstructions : ''}`;
+            
+            const userPrompt = `Conversation so far:\n${history || '(no prior conversation)'}\n\nContext from documents:\n${context}\n\nQuestion: ${question}\n\nAnalyze the context carefully and provide a helpful answer. If the answer can be inferred from the context, provide it. Formulate your answer in markdown.`;
+
+            const messageId = addMessageToChat('assistant', '');
+
+            try {
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${state.apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: 'gpt-4o-mini',
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: userPrompt }
+                        ],
+                        temperature: state.temperature,
+                        stream: true
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error?.message || 'Failed to get response');
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let fullResponse = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            if (data === '[DONE]') continue;
+                            try {
+                                const json = JSON.parse(data);
+                                const content = json.choices[0]?.delta?.content || '';
+                                if (content) {
+                                    fullResponse += content;
+                                    updateMessageContent(messageId, fullResponse);
+                                }
+                            } catch (e) {
+                                // Skip invalid JSON
+                            }
+                        }
+                    }
+                }
+
+                state.chatHistory.push([question, fullResponse]);
+            } catch (error) {
+                updateMessageContent(messageId, '⚠️ Error: ' + error.message);
+                throw error;
+            }
+        }
+
+        function addMessageToChat(role, content) {
+            const chatbox = document.getElementById('chatbox');
+            if (chatbox.children.length === 1 && chatbox.children[0].style.textAlign === 'center') {
+                chatbox.innerHTML = '';
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            const messageId = 'msg-' + Date.now();
+            messageDiv.id = messageId;
+
+            const header = document.createElement('div');
+            header.className = 'message-header';
+            header.textContent = role === 'user' ? 'You' : 'Assistant';
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.innerHTML = formatMarkdown(content);
+
+            messageDiv.appendChild(header);
+            messageDiv.appendChild(contentDiv);
+            chatbox.appendChild(messageDiv);
+            chatbox.scrollTop = chatbox.scrollHeight;
+
+            return messageId;
+        }
+
+        function updateMessageContent(messageId, content) {
+            const messageDiv = document.getElementById(messageId);
+            if (messageDiv) {
+                const contentDiv = messageDiv.querySelector('.message-content');
+                if (contentDiv) {
+                    contentDiv.innerHTML = formatMarkdown(content);
+                    document.getElementById('chatbox').scrollTop = document.getElementById('chatbox').scrollHeight;
+                }
+            }
+        }
+
+        function formatMarkdown(text) {
+            // Simple markdown formatting
+            text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+            text = text.replace(/`(.+?)`/g, '<code>$1</code>');
+            text = text.replace(/\n/g, '<br>');
+            return text;
+        }
+
+        function updateAnswerSources(chunks) {
+            const sourcesEl = document.getElementById('answerSources');
+            if (chunks.length === 0) {
+                sourcesEl.textContent = 'No sources for this answer.';
+                return;
+            }
+            const sources = chunks.map((chunk, idx) => `[${idx + 1}] ${chunk.source}`).join('<br>');
+            sourcesEl.innerHTML = sources;
+        }
+
+        function updateIndexedDocuments() {
+            const docsEl = document.getElementById('indexedDocuments');
+            if (!state.currentProject || state.currentProject.files.length === 0) {
+                docsEl.textContent = 'No documents indexed yet.';
+                return;
+            }
+            const files = state.currentProject.files.map(file => `• ${file}`).join('<br>');
+            docsEl.innerHTML = files;
+        }
+
+        function clearChat() {
+            document.getElementById('chatbox').innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">No messages yet. Upload documents and ask questions!</div>';
+            state.chatHistory = [];
+        }
+
+        async function clearKnowledge() {
+            if (!state.currentProject) {
+                showStatus('⚠️ No project selected.', 'error');
+                return;
+            }
+            if (!confirm('Are you sure you want to clear all knowledge for this project?')) {
+                return;
+            }
+            state.chunks = [];
+            state.currentProject.files = [];
+            state.currentProject.chunks = 0;
+            await saveProjectToStorage(state.currentProject);
+            await saveChunksToStorage(state.currentProject.name, []);
+            updateProjectStatus();
+            updateIndexedDocuments();
+            showStatus('✅ Knowledge base cleared.', 'success');
+        }
+
+        // Storage Functions (IndexedDB)
+        let db = null;
+
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('RAGAssistantDB', 1);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    db = request.result;
+                    resolve(db);
+                };
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains('projects')) {
+                        db.createObjectStore('projects', { keyPath: 'name' });
+                    }
+                    if (!db.objectStoreNames.contains('chunks')) {
+                        const chunksStore = db.createObjectStore('chunks', { keyPath: 'id' });
+                        chunksStore.createIndex('project', 'project', { unique: false });
+                    }
+                };
+            });
+        }
+
+        async function getDB() {
+            if (!db) {
+                await initDB();
+            }
+            return db;
+        }
+
+        async function saveProjectToStorage(project) {
+            const database = await getDB();
+            return new Promise((resolve, reject) => {
+                const transaction = database.transaction(['projects'], 'readwrite');
+                const store = transaction.objectStore('projects');
+                const request = store.put(project);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function getProjectFromStorage(name) {
+            const database = await getDB();
+            return new Promise((resolve, reject) => {
+                const transaction = database.transaction(['projects'], 'readonly');
+                const store = transaction.objectStore('projects');
+                const request = store.get(name);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function getProjectsFromStorage() {
+            const database = await getDB();
+            return new Promise((resolve, reject) => {
+                const transaction = database.transaction(['projects'], 'readonly');
+                const store = transaction.objectStore('projects');
+                const request = store.getAll();
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function saveChunksToStorage(projectName, chunks) {
+            const database = await getDB();
+            return new Promise((resolve, reject) => {
+                const transaction = database.transaction(['chunks'], 'readwrite');
+                const store = transaction.objectStore('chunks');
+                
+                // Delete existing chunks for this project
+                const index = store.index('project');
+                const range = IDBKeyRange.only(projectName);
+                index.openCursor(range).onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        store.delete(cursor.primaryKey);
+                        cursor.continue();
+                    } else {
+                        // All existing chunks deleted, now add new ones
+                        chunks.forEach(chunk => {
+                            store.put(chunk);
+                        });
+                        resolve();
+                    }
+                };
+            });
+        }
+
+        async function getChunksFromStorage(projectName) {
+            const database = await getDB();
+            return new Promise((resolve, reject) => {
+                const transaction = database.transaction(['chunks'], 'readonly');
+                const store = transaction.objectStore('chunks');
+                const index = store.index('project');
+                const range = IDBKeyRange.only(projectName);
+                const request = index.getAll(range);
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        function loadSettings() {
+            const saved = localStorage.getItem('rag_settings');
+            if (saved) {
+                try {
+                    const settings = JSON.parse(saved);
+                    if (settings.chunkSize) document.getElementById('chunkSize').value = settings.chunkSize;
+                    if (settings.chunkOverlap) document.getElementById('chunkOverlap').value = settings.chunkOverlap;
+                    if (settings.topK) document.getElementById('topK').value = settings.topK;
+                    if (settings.maxContextSections) document.getElementById('maxContextSections').value = settings.maxContextSections;
+                    if (settings.scoreThreshold) {
+                        document.getElementById('scoreThreshold').value = settings.scoreThreshold;
+                        document.getElementById('scoreThresholdValue').textContent = settings.scoreThreshold;
+                    }
+                    if (settings.temperature) {
+                        document.getElementById('temperature').value = settings.temperature;
+                        document.getElementById('temperatureValue').textContent = settings.temperature;
+                    }
+                    if (settings.embeddingModel) document.getElementById('embeddingModel').value = settings.embeddingModel;
+                } catch (e) {
+                    console.error('Error loading settings:', e);
+                }
+            }
+        }
+
+        // Save settings on change
+        ['chunkSize', 'chunkOverlap', 'topK', 'maxContextSections', 'scoreThreshold', 'temperature', 'embeddingModel'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', () => {
+                    const settings = {
+                        chunkSize: parseInt(document.getElementById('chunkSize').value),
+                        chunkOverlap: parseInt(document.getElementById('chunkOverlap').value),
+                        topK: parseInt(document.getElementById('topK').value),
+                        maxContextSections: parseInt(document.getElementById('maxContextSections').value),
+                        scoreThreshold: parseFloat(document.getElementById('scoreThreshold').value),
+                        temperature: parseFloat(document.getElementById('temperature').value),
+                        embeddingModel: document.getElementById('embeddingModel').value
+                    };
+                    localStorage.setItem('rag_settings', JSON.stringify(settings));
+                });
+            }
+        });
+    </script>
+</body>
+</html>

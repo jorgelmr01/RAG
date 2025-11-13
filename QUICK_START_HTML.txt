@@ -1,0 +1,51 @@
+═══════════════════════════════════════════════════════════════
+  DOCUMENT RAG ASSISTANT - HTML VERSION
+  Quick Start Guide
+═══════════════════════════════════════════════════════════════
+
+🚀 GETTING STARTED (3 STEPS):
+
+1. OPEN THE FILE
+   → Double-click "index.html"
+   → It will open in your default web browser
+
+2. SET YOUR API KEY
+   → Click "🔑 API Key" section
+   → Paste your OpenAI API key (get it from: https://platform.openai.com/account/api-keys)
+   → Click "Set API Key"
+
+3. CREATE PROJECT & UPLOAD DOCUMENTS
+   → Click "📁 Projects" section
+   → Enter a project name and click "Create & Switch"
+   → Select your documents (PDF, TXT, DOCX, etc.)
+   → Click "Process Documents"
+   → Wait for processing to complete
+   → Start asking questions!
+
+═══════════════════════════════════════════════════════════════
+
+✅ THAT'S IT! No installation, no Python, no security blocks!
+
+═══════════════════════════════════════════════════════════════
+
+📋 SUPPORTED FILES:
+   • PDF files (.pdf)
+   • Word documents (.docx)
+   • Text files (.txt, .md)
+   • CSV files (.csv)
+
+═══════════════════════════════════════════════════════════════
+
+💡 TIPS:
+   • All data is stored in your browser (private & secure)
+   • You need internet connection for OpenAI API
+   • Works in Chrome, Firefox, Edge, Safari
+   • For detailed help, see README_HTML_VERSION.md
+
+═══════════════════════════════════════════════════════════════
+
+SHARING WITH COWORKERS:
+   Just send them the "index.html" file - that's all they need!
+
+═══════════════════════════════════════════════════════════════
+
