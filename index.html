@@ -791,14 +791,36 @@
                     const embeddings = await generateEmbeddings(chunkTexts, embeddingModel);
 
                     for (let i = 0; i < chunks.length; i++) {
+                        // Explicitly get page number, defaulting to null if not available
+                        let pageNum = null;
+                        if (chunks[i] && chunks[i].hasOwnProperty('page')) {
+                            const pageValue = chunks[i].page;
+                            if (pageValue !== null && pageValue !== undefined && pageValue !== '') {
+                                const num = Number(pageValue);
+                                if (!isNaN(num) && num > 0) {
+                                    pageNum = Math.floor(num);
+                                }
+                            }
+                        }
+                        
                         const chunk = {
                             id: generateId(),
                             text: chunks[i].text,
                             embedding: embeddings[i],
                             source: file.name,
-                            page: chunks[i].page || null, // Ensure page is set (null if not available)
+                            page: pageNum, // Explicitly set page number (null for non-PDF files)
                             project: state.currentProject.name
                         };
+                        
+                        // Debug: Log first chunk to verify page is set
+                        if (i === 0 && file.name.toLowerCase().endsWith('.pdf')) {
+                            console.log('First PDF chunk created:', {
+                                source: chunk.source,
+                                page: chunk.page,
+                                hasPage: 'page' in chunk
+                            });
+                        }
+                        
                         state.chunks.push(chunk);
                     }
 
@@ -1245,18 +1267,33 @@
                 return;
             }
             
+            // Debug: Log first chunk to see its structure
+            if (chunks.length > 0) {
+                console.log('First chunk structure:', {
+                    source: chunks[0].source,
+                    page: chunks[0].page,
+                    hasPage: 'page' in chunks[0],
+                    pageType: typeof chunks[0].page,
+                    allKeys: Object.keys(chunks[0])
+                });
+            }
+            
             const sources = chunks.map((chunk, idx) => {
-                // Check if page exists and is a valid number (including 0 check)
+                // Check if page exists and is a valid number
                 let pageNum = null;
-                if (chunk.hasOwnProperty('page')) {
+                
+                // Try multiple ways to get the page number
+                if ('page' in chunk) {
                     const pageValue = chunk.page;
-                    if (pageValue !== null && pageValue !== undefined) {
+                    if (pageValue !== null && pageValue !== undefined && pageValue !== '') {
                         const numPage = Number(pageValue);
-                        if (!isNaN(numPage) && numPage > 0) {
-                            pageNum = numPage;
+                        if (!isNaN(numPage) && numPage > 0 && numPage < 100000) {
+                            pageNum = Math.floor(numPage);
                         }
                     }
                 }
+                
+                // Always show page if available, otherwise show document only
                 const pageInfo = pageNum !== null ? ` (page ${pageNum})` : '';
                 return `[${idx + 1}] ${chunk.source}${pageInfo}`;
             }).join('<br>');
