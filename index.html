@@ -1430,7 +1430,25 @@
                 const index = store.index('project');
                 const range = IDBKeyRange.only(projectName);
                 const request = index.getAll(range);
-                request.onsuccess = () => resolve(request.result || []);
+                request.onsuccess = () => {
+                    const chunks = request.result || [];
+                    // Ensure all chunks have a page property (even if null)
+                    chunks.forEach(chunk => {
+                        if (!('page' in chunk)) {
+                            chunk.page = null;
+                        }
+                    });
+                    // Debug: Log first chunk to verify structure
+                    if (chunks.length > 0) {
+                        console.log('Loaded chunk from storage:', {
+                            source: chunks[0].source,
+                            page: chunks[0].page,
+                            hasPage: 'page' in chunks[0],
+                            allKeys: Object.keys(chunks[0])
+                        });
+                    }
+                    resolve(chunks);
+                };
                 request.onerror = () => reject(request.error);
             });
         }
