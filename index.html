@@ -1319,6 +1319,14 @@ IMPORTANT: Never use tables in your responses. Always format information as plai
         }
 
         function formatMarkdown(text) {
+            // Remove any table markdown (prevent tables from being displayed)
+            // Replace table syntax with plain text lists
+            text = text.replace(/\|(.+)\|/g, (match, content) => {
+                // Convert table rows to bullet points
+                const cells = content.split('|').filter(c => c.trim());
+                return '• ' + cells.join(' | ') + '<br>';
+            });
+            
             // Simple markdown formatting
             text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
             text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
