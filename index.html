@@ -792,9 +792,13 @@
                             text: chunks[i].text,
                             embedding: embeddings[i],
                             source: file.name,
-                            page: chunks[i].page,
+                            page: chunks[i].page || null, // Ensure page is set (null if not available)
                             project: state.currentProject.name
                         };
+                        // Debug: log first chunk to verify page is set
+                        if (i === 0) {
+                            console.log('First chunk page:', chunk.page, 'for file:', file.name);
+                        }
                         state.chunks.push(chunk);
                     }
 
@@ -1090,7 +1094,9 @@
 
         function formatContext(chunks) {
             return chunks.map((chunk, idx) => {
-                const pageInfo = chunk.page ? ` (page ${chunk.page})` : '';
+                // Check if page exists and is a valid number
+                const hasPage = chunk.hasOwnProperty('page') && chunk.page !== null && chunk.page !== undefined && !isNaN(chunk.page) && chunk.page > 0;
+                const pageInfo = hasPage ? ` (page ${chunk.page})` : '';
                 return `[${idx + 1}] ${chunk.source}${pageInfo}\n${chunk.text.substring(0, 2000)}`;
             }).join('\n\n');
         }
@@ -1218,8 +1224,30 @@
                 sourcesEl.textContent = 'No sources for this answer.';
                 return;
             }
+            
+            // Debug: log chunk structure
+            if (chunks.length > 0) {
+                console.log('Sample chunk for sources:', {
+                    source: chunks[0].source,
+                    page: chunks[0].page,
+                    hasPage: chunks[0].hasOwnProperty('page'),
+                    pageType: typeof chunks[0].page
+                });
+            }
+            
             const sources = chunks.map((chunk, idx) => {
-                const pageInfo = chunk.page ? ` (page ${chunk.page})` : '';
+                // Check if page exists and is a valid number (including 0 check)
+                let pageNum = null;
+                if (chunk.hasOwnProperty('page')) {
+                    const pageValue = chunk.page;
+                    if (pageValue !== null && pageValue !== undefined) {
+                        const numPage = Number(pageValue);
+                        if (!isNaN(numPage) && numPage > 0) {
+                            pageNum = numPage;
+                        }
+                    }
+                }
+                const pageInfo = pageNum !== null ? ` (page ${pageNum})` : '';
                 return `[${idx + 1}] ${chunk.source}${pageInfo}`;
             }).join('<br>');
             sourcesEl.innerHTML = sources;
