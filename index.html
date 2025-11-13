@@ -773,8 +773,12 @@
                         continue;
                     }
 
-                    const text = extractionResult.text || extractionResult.pages.map(p => p.text).join('\n');
+                    // Use pages array if available, otherwise use text
+                    // For PDFs, we want to use the pages array to maintain page number mapping
                     const pages = extractionResult.pages || [];
+                    const text = pages.length > 0 
+                        ? pages.map(p => p.text).join('\n')  // Reconstruct from pages to ensure alignment
+                        : extractionResult.text;
 
                     // Update progress: Chunking
                     progressText.textContent = `Chunking text from ${file.name}... (${fileIndex + 1}/${totalFiles})`;
@@ -908,6 +912,9 @@
             
             // If we have page information, use it
             if (pages && pages.length > 0) {
+                // Reconstruct text from pages to ensure perfect alignment
+                const reconstructedText = pages.map(p => p.text).join('\n');
+                
                 // Create a mapping of character positions to page numbers
                 let charToPage = [];
                 let currentPos = 0;
@@ -916,15 +923,23 @@
                     for (let i = 0; i < pageLength; i++) {
                         charToPage[currentPos + i] = page.pageNumber;
                     }
-                    currentPos += pageLength + 1; // +1 for newline
+                    currentPos += pageLength;
+                    // Add newline character mapping (if not last page)
+                    if (currentPos < reconstructedText.length) {
+                        charToPage[currentPos] = page.pageNumber; // Newline belongs to current page
+                        currentPos += 1;
+                    }
                 }
+                
+                // Use reconstructed text to ensure alignment
+                const textToChunk = reconstructedText;
                 
                 // Chunk the text
                 let start = 0;
-                while (start < text.length) {
+                while (start < textToChunk.length) {
                     const chunkStart = start;
-                    const end = Math.min(start + chunkSize, text.length);
-                    let chunk = text.substring(start, end);
+                    const end = Math.min(start + chunkSize, textToChunk.length);
+                    let chunk = textToChunk.substring(start, end);
                     let actualEnd = end;
                     
                     // Try to break at sentence boundaries
@@ -944,8 +959,17 @@
                     }
                     
                     if (chunk.trim().length > 0) {
-                        // Determine page number for this chunk (use the start position)
-                        const chunkPage = charToPage[chunkStart] || charToPage[Math.min(chunkStart + Math.floor(chunk.length / 2), text.length - 1)] || null;
+                        // Determine page number for this chunk (use the start position, fallback to middle)
+                        let chunkPage = charToPage[chunkStart];
+                        if (!chunkPage && chunkStart < textToChunk.length) {
+                            // Try middle of chunk
+                            const midPos = Math.min(chunkStart + Math.floor(chunk.length / 2), textToChunk.length - 1);
+                            chunkPage = charToPage[midPos];
+                        }
+                        if (!chunkPage && chunkStart > 0) {
+                            // Try position just before chunk start
+                            chunkPage = charToPage[chunkStart - 1];
+                        }
                         
                         chunks.push({
                             text: chunk.trim(),
