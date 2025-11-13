@@ -395,19 +395,29 @@
                     <span>▼</span>
                 </div>
                 <div class="accordion-content open">
-                    <div class="row">
-                        <select id="projectSelect" style="flex: 3;">
-                            <option value="">No projects yet</option>
-                        </select>
-                        <button onclick="loadProject()" style="flex: 1;">Load Selected</button>
-                        <button onclick="refreshProjects()" class="secondary" style="flex: 1;">Refresh</button>
+                    <div style="background: #e3f2fd; border-left: 4px solid #1a4d7a; padding: 12px; margin-bottom: 15px; border-radius: 4px;">
+                        <strong>Getting Started:</strong> To begin, create a new project by entering a name below and clicking "Create Project". Projects help you organize different sets of documents.
                     </div>
-                    <div class="row">
-                        <input type="text" id="newProjectName" placeholder="e.g. client-a" style="flex: 3;">
-                        <button onclick="createProject()" style="flex: 1;">Create & Switch</button>
+                    <div style="margin-bottom: 15px;">
+                        <label for="newProjectName" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Create New Project</label>
+                        <div class="row">
+                            <input type="text" id="newProjectName" placeholder="Enter project name (e.g., 'client-a', 'research-2024')" style="flex: 3;">
+                            <button onclick="createProject()" style="flex: 1;">Create Project</button>
+                        </div>
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">Give your project a descriptive name to organize your documents.</p>
+                    </div>
+                    <div style="margin-bottom: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Load Existing Project</label>
+                        <div class="row">
+                            <select id="projectSelect" style="flex: 3;">
+                                <option value="">No projects yet - Create one above</option>
+                            </select>
+                            <button onclick="loadProject()" style="flex: 1;">Load Selected</button>
+                            <button onclick="refreshProjects()" class="secondary" style="flex: 1;">Refresh</button>
+                        </div>
                     </div>
                     <div id="projectStatus" style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
-                        No project selected.
+                        No project selected. Create a project above to get started.
                     </div>
                 </div>
             </div>
@@ -453,32 +463,69 @@
                     <span>▼</span>
                 </div>
                 <div class="accordion-content">
+                    <p style="font-size: 13px; color: #666; margin-bottom: 20px; padding: 10px; background: #f8f9fa; border-radius: 4px;">
+                        <strong>Tip:</strong> These settings control how documents are processed and how answers are generated. Default values work well for most cases. Only adjust if you need specific behavior.
+                    </p>
+
                     <div class="form-group">
                         <label for="embeddingModel">Embedding Model</label>
                         <select id="embeddingModel">
                             <option value="text-embedding-3-large">text-embedding-3-large (Recommended - Best Quality)</option>
                             <option value="text-embedding-3-small">text-embedding-3-small (Faster & Cheaper)</option>
                         </select>
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                            <strong>What it does:</strong> Converts text into numerical vectors for similarity search.<br>
+                            <strong>Large model:</strong> Best accuracy, finds more relevant content. Higher cost (~6x more expensive).<br>
+                            <strong>Small model:</strong> ~95% of large model performance, much faster and cheaper. Good for most use cases.
+                        </p>
                     </div>
 
                     <h4 style="margin: 20px 0 10px 0;">Chunking Settings</h4>
+                    <p style="font-size: 12px; color: #666; margin-bottom: 15px;">How documents are split into smaller pieces for processing.</p>
+                    
                     <div class="form-group">
                         <label for="chunkSize">Chunk Size (characters)</label>
                         <input type="number" id="chunkSize" value="1500" min="100" max="10000" step="100">
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                            <strong>What it does:</strong> Size of each text chunk extracted from documents.<br>
+                            <strong>Smaller (500-1000):</strong> More precise retrieval, better for specific facts. More chunks to process.<br>
+                            <strong>Larger (2000-3000):</strong> More context per chunk, better for complex topics. Fewer chunks, may miss specific details.<br>
+                            <strong>Default (1500):</strong> Good balance for most documents.
+                        </p>
                     </div>
                     <div class="form-group">
                         <label for="chunkOverlap">Chunk Overlap (characters)</label>
                         <input type="number" id="chunkOverlap" value="300" min="0" max="5000" step="50">
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                            <strong>What it does:</strong> How much text overlaps between adjacent chunks.<br>
+                            <strong>No overlap (0):</strong> Faster processing, but may break sentences/ideas at boundaries.<br>
+                            <strong>More overlap (200-400):</strong> Preserves context across chunks, better for long documents. Slightly more processing.<br>
+                            <strong>Default (300):</strong> ~20% of chunk size, good for maintaining context.
+                        </p>
                     </div>
 
                     <h4 style="margin: 20px 0 10px 0;">Retrieval Settings</h4>
+                    <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Controls how many document chunks are used to answer questions.</p>
+                    
                     <div class="form-group">
                         <label for="topK">Initial Chunks Retrieved</label>
                         <input type="number" id="topK" value="8" min="1" max="50" step="1">
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                            <strong>What it does:</strong> How many chunks to initially search for when answering.<br>
+                            <strong>Fewer (3-5):</strong> Faster, cheaper, but may miss relevant information.<br>
+                            <strong>More (15-20):</strong> Better recall, finds more relevant content. Slower and more expensive.<br>
+                            <strong>Default (8):</strong> Good balance between speed and thoroughness.
+                        </p>
                     </div>
                     <div class="form-group">
                         <label for="maxContextSections">Max Context Sections</label>
                         <input type="number" id="maxContextSections" value="12" min="1" max="30" step="1">
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                            <strong>What it does:</strong> Maximum chunks sent to the AI for generating answers.<br>
+                            <strong>Fewer (5-8):</strong> Faster responses, lower cost, focused answers. May miss related context.<br>
+                            <strong>More (15-20):</strong> More comprehensive answers, better for complex questions. Slower, higher cost.<br>
+                            <strong>Default (12):</strong> Good for most questions, balances detail and speed.
+                        </p>
                     </div>
                     <div class="form-group">
                         <label for="scoreThreshold">Similarity Score Threshold</label>
@@ -486,15 +533,31 @@
                             <input type="range" id="scoreThreshold" min="0" max="1" step="0.05" value="0.5" oninput="updateSliderValue(this, 'scoreThresholdValue')">
                             <span class="slider-value" id="scoreThresholdValue">0.5</span>
                         </div>
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                            <strong>What it does:</strong> Minimum similarity required to include a chunk in answers.<br>
+                            <strong>Lower (0.0-0.3):</strong> More lenient, includes more chunks. Better recall but may include less relevant content.<br>
+                            <strong>Higher (0.6-0.8):</strong> Stricter, only very similar chunks. More precise but may miss related information.<br>
+                            <strong>Default (0.5):</strong> Balanced - includes relevant chunks while filtering out noise.<br>
+                            <strong>Tip:</strong> If answers miss information, lower this. If answers include irrelevant content, raise it.
+                        </p>
                     </div>
 
                     <h4 style="margin: 20px 0 10px 0;">Response Settings</h4>
+                    <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Controls how the AI generates its responses.</p>
+                    
                     <div class="form-group">
                         <label for="temperature">Temperature</label>
                         <div class="slider-container">
                             <input type="range" id="temperature" min="0" max="1" step="0.1" value="0.2" oninput="updateSliderValue(this, 'temperatureValue')">
                             <span class="slider-value" id="temperatureValue">0.2</span>
                         </div>
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                            <strong>What it does:</strong> Controls randomness and creativity in responses.<br>
+                            <strong>Lower (0.0-0.3):</strong> More focused, factual, consistent answers. Best for technical documents and precise information.<br>
+                            <strong>Higher (0.6-0.9):</strong> More creative, varied wording. Better for creative writing but less reliable for facts.<br>
+                            <strong>Default (0.2):</strong> Balanced - factual but with natural language variation.<br>
+                            <strong>Tip:</strong> Keep it low (0.1-0.3) for document Q&A. Only increase if you want more creative responses.
+                        </p>
                     </div>
                 </div>
             </div>
@@ -1148,9 +1211,11 @@
         async function streamResponse(question, context, customInstructions) {
             const history = state.chatHistory.slice(-6).map(([q, a]) => `User: ${q}\nAssistant: ${a}`).join('\n\n');
             
-            const systemPrompt = `You are a meticulous research assistant analyzing documents. Answer the user's question using the provided context. You may infer answers from the context even if not explicitly stated. Look for related information, synonyms, and contextual clues. Cite the supporting snippets with bracketed references like [1] tied to the context order. Only say 'I do not have enough information' if the context truly contains no relevant information that could help answer the question, even indirectly.${customInstructions ? '\n\nAdditional instructions from the user:\n' + customInstructions : ''}`;
+            const systemPrompt = `You are a meticulous research assistant analyzing documents. Answer the user's question using the provided context. You may infer answers from the context even if not explicitly stated. Look for related information, synonyms, and contextual clues. Cite the supporting snippets with bracketed references like [1] tied to the context order. Only say 'I do not have enough information' if the context truly contains no relevant information that could help answer the question, even indirectly.
+
+IMPORTANT: Never use tables in your responses. Always format information as plain text, lists, or paragraphs. Use bullet points, numbered lists, or descriptive paragraphs instead of tables.${customInstructions ? '\n\nAdditional instructions from the user:\n' + customInstructions : ''}`;
             
-            const userPrompt = `Conversation so far:\n${history || '(no prior conversation)'}\n\nContext from documents:\n${context}\n\nQuestion: ${question}\n\nAnalyze the context carefully and provide a helpful answer. If the answer can be inferred from the context, provide it. Formulate your answer in markdown.`;
+            const userPrompt = `Conversation so far:\n${history || '(no prior conversation)'}\n\nContext from documents:\n${context}\n\nQuestion: ${question}\n\nAnalyze the context carefully and provide a helpful answer. If the answer can be inferred from the context, provide it. Formulate your answer in markdown format, but DO NOT use tables. Use bullet points, numbered lists, or paragraphs instead.`;
 
             const messageId = addMessageToChat('assistant', '');
 
