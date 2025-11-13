@@ -918,8 +918,10 @@
                 // Chunk the text
                 let start = 0;
                 while (start < text.length) {
+                    const chunkStart = start;
                     const end = Math.min(start + chunkSize, text.length);
                     let chunk = text.substring(start, end);
+                    let actualEnd = end;
                     
                     // Try to break at sentence boundaries
                     if (end < text.length) {
@@ -928,9 +930,10 @@
                         const breakPoint = Math.max(lastPeriod, lastNewline);
                         if (breakPoint > chunkSize * 0.5) {
                             chunk = chunk.substring(0, breakPoint + 1);
-                            start += breakPoint + 1 - chunkOverlap;
+                            actualEnd = start + breakPoint + 1;
+                            start = actualEnd - chunkOverlap;
                         } else {
-                            start += chunkSize - chunkOverlap;
+                            start = end - chunkOverlap;
                         }
                     } else {
                         start = text.length;
@@ -938,8 +941,7 @@
                     
                     if (chunk.trim().length > 0) {
                         // Determine page number for this chunk (use the start position)
-                        const chunkStartPos = start - chunk.length;
-                        const chunkPage = charToPage[Math.max(0, chunkStartPos)] || charToPage[Math.max(0, Math.min(chunkStartPos + chunk.length - 1, text.length - 1))] || null;
+                        const chunkPage = charToPage[chunkStart] || charToPage[Math.min(chunkStart + Math.floor(chunk.length / 2), text.length - 1)] || null;
                         
                         chunks.push({
                             text: chunk.trim(),
