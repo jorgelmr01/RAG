@@ -799,10 +799,6 @@
                             page: chunks[i].page || null, // Ensure page is set (null if not available)
                             project: state.currentProject.name
                         };
-                        // Debug: log first chunk to verify page is set
-                        if (i === 0) {
-                            console.log('First chunk page:', chunk.page, 'for file:', file.name);
-                        }
                         state.chunks.push(chunk);
                     }
 
@@ -1247,16 +1243,6 @@
             if (chunks.length === 0) {
                 sourcesEl.textContent = 'No sources for this answer.';
                 return;
-            }
-            
-            // Debug: log chunk structure
-            if (chunks.length > 0) {
-                console.log('Sample chunk for sources:', {
-                    source: chunks[0].source,
-                    page: chunks[0].page,
-                    hasPage: chunks[0].hasOwnProperty('page'),
-                    pageType: typeof chunks[0].page
-                });
             }
             
             const sources = chunks.map((chunk, idx) => {
