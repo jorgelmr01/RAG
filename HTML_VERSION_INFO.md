@@ -14,7 +14,7 @@ This branch (`html-version`) contains a **pure HTML/JavaScript implementation** 
 - May trigger security blocks on corporate computers
 
 ### HTML Version (this branch)
-- **No installation required** - just open `index.html`
+- **No installation required** - just open `Start_App.html`
 - Runs entirely in the browser
 - Uses IndexedDB for local storage
 - Uses CDN libraries (PDF.js, Mammoth.js)
@@ -24,7 +24,7 @@ This branch (`html-version`) contains a **pure HTML/JavaScript implementation** 
 ## Files in This Branch
 
 ### Core Files
-- **`index.html`** - Complete standalone application (all-in-one file)
+- **`Start_App.html`** - Complete standalone application (all-in-one file)
 - **`README_HTML_VERSION.md`** - Detailed documentation for HTML version
 - **`QUICK_START_HTML.txt`** - Quick reference guide
 
@@ -34,7 +34,7 @@ This branch (`html-version`) contains a **pure HTML/JavaScript implementation** 
 
 ## How to Use
 
-1. **Open `index.html`** in any modern web browser
+1. **Open `Start_App.html`** in any modern web browser
 2. **Set your OpenAI API key** in the UI
 3. **Create a project** and upload documents
 4. **Start asking questions!**
@@ -44,7 +44,7 @@ See `README_HTML_VERSION.md` for complete instructions.
 ## Sharing
 
 To share with coworkers:
-- Just send them the `index.html` file
+- Just send them the `Start_App.html` file
 - They can open it immediately - no installation needed
 - All data stays in their browser (private and secure)
 
@@ -94,7 +94,7 @@ git checkout html-version
 ## Maintenance
 
 - The HTML version is self-contained
-- Updates: Just replace `index.html` with new version
+- Updates: Just replace `Start_App.html` with new version
 - User data persists in browser (IndexedDB)
 - No server or backend required
 

@@ -6,7 +6,7 @@ This is a **pure HTML/JavaScript version** of the Document RAG Assistant that ru
 
 ## ✨ Features
 
-- **Zero Installation** - Just open `index.html` in any modern web browser
+- **Zero Installation** - Just open `Start_App.html` in any modern web browser
 - **No Server Required** - Everything runs in your browser
 - **Same Functionality** - All features from the Python version:
   - Upload PDF, TXT, MD, DOCX, CSV files
@@ -21,10 +21,10 @@ This is a **pure HTML/JavaScript version** of the Document RAG Assistant that ru
 
 ### Step 1: Open the File
 
-Simply double-click `index.html` or:
+Simply double-click `Start_App.html` or:
 - **Windows**: Right-click → "Open with" → Choose your browser (Chrome, Firefox, Edge, etc.)
 - **Mac**: Right-click → "Open with" → Choose your browser
-- **Linux**: Double-click or open from terminal: `xdg-open index.html`
+- **Linux**: Double-click or open from terminal: `xdg-open Start_App.html`
 
 ### Step 2: Set Your API Key
 
@@ -112,7 +112,7 @@ Works in all modern browsers:
 
 To share with coworkers:
 
-1. **Just send the `index.html` file** - That's it!
+1. **Just send the `Start_App.html` file** - That's it!
 2. They can open it in any browser
 3. No installation, no security blocks, no Python needed
 
@@ -199,7 +199,7 @@ If you encounter issues:
 ## 🔄 Updating
 
 To update to a newer version:
-1. Download the new `index.html`
+1. Download the new `Start_App.html`
 2. Replace the old file
 3. Your existing projects and data will remain (stored in browser)
 

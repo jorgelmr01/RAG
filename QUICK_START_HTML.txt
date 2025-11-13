@@ -6,7 +6,7 @@
 🚀 GETTING STARTED (3 STEPS):
 
 1. OPEN THE FILE
-   → Double-click "index.html"
+   → Double-click "Start_App.html"
    → It will open in your default web browser
 
 2. SET YOUR API KEY
@@ -45,7 +45,7 @@
 ═══════════════════════════════════════════════════════════════
 
 SHARING WITH COWORKERS:
-   Just send them the "index.html" file - that's all they need!
+   Just send them the "Start_App.html" file - that's all they need!
 
 ═══════════════════════════════════════════════════════════════
 
