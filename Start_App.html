@@ -1,10 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document RAG Assistant - HTML Version</title>
+    <title>RAG Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-dark: #0f172a;
+            --bg-sidebar: #1e293b;
+            --bg-chat: #f8fafc;
+            --border: #e2e8f0;
+            --text-main: #334155;
+            --text-light: #64748b;
+            --white: #ffffff;
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --radius: 12px;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -12,993 +30,1198 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #0a192f 0%, #1a4d7a 50%, #0d47a1 100%);
-            min-height: 100vh;
-            padding: 20px;
-            color: #333;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-chat);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
             overflow: hidden;
         }
 
-        .header {
-            background: linear-gradient(135deg, #0a192f 0%, #1a4d7a 50%, #0d47a1 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-
-        .header p {
-            opacity: 0.9;
-            font-size: 1.1em;
-        }
-
-        .content {
-            padding: 30px;
-        }
-
-        .accordion {
-            margin-bottom: 20px;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        .accordion-header {
-            background: #f5f5f5;
-            padding: 15px 20px;
-            cursor: pointer;
+        /* Sidebar */
+        .sidebar {
+            width: 320px;
+            background-color: var(--bg-sidebar);
+            color: var(--text-light);
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-weight: 600;
-            transition: background 0.2s;
+            flex-direction: column;
+            border-right: 1px solid #334155;
+            transition: transform 0.3s ease;
+            z-index: 20;
         }
 
-        .accordion-header:hover {
-            background: #eeeeee;
-        }
-
-        .accordion-content {
+        .sidebar-header {
             padding: 20px;
-            display: none;
-        }
-
-        .accordion-content.open {
-            display: block;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-            color: #555;
-        }
-
-        input[type="text"],
-        input[type="password"],
-        input[type="number"],
-        textarea,
-        select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
-            font-family: inherit;
-        }
-
-        textarea {
-            resize: vertical;
-            min-height: 80px;
-        }
-
-        button {
-            background: linear-gradient(135deg, #0a192f 0%, #1a4d7a 100%);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(26, 77, 122, 0.4);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        button.secondary {
-            background: #6c757d;
-        }
-
-        button.danger {
-            background: #dc3545;
-        }
-
-        .row {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-
-        .row > * {
-            flex: 1;
-        }
-
-        .status-message {
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 15px;
-            font-size: 14px;
-        }
-
-        .status-message.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .status-message.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .status-message.info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-
-        .chat-container {
-            display: flex;
-            gap: 20px;
-            margin-top: 20px;
-        }
-
-        .chat-main {
-            flex: 3;
-        }
-
-        .chat-sidebar {
-            flex: 2;
-            min-width: 300px;
-        }
-
-        .chatbox {
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            height: 500px;
-            overflow-y: auto;
-            padding: 20px;
-            background: #fafafa;
-            margin-bottom: 15px;
-        }
-
-        .message {
-            margin-bottom: 20px;
-            padding: 12px;
-            border-radius: 8px;
-        }
-
-        .message.user {
-            background: #e3f2fd;
-            margin-left: 20%;
-        }
-
-        .message.assistant {
-            background: #f1f8e9;
-            margin-right: 20%;
-        }
-
-        .message-header {
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #555;
-        }
-
-        .message-content {
-            line-height: 1.6;
-        }
-
-        .sources-panel {
-            background: #f8f9fa;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-
-        .sources-panel h3 {
-            margin-bottom: 10px;
-            font-size: 16px;
-            color: #333;
-        }
-
-        .sources-list {
-            font-size: 14px;
-            line-height: 1.8;
-        }
-
-        .file-input-wrapper {
-            position: relative;
-            display: inline-block;
-            width: 100%;
-        }
-
-        .file-input-wrapper input[type="file"] {
-            width: 100%;
-            padding: 10px;
-            border: 2px dashed #ddd;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-
-        .loading {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        .slider-container {
+            border-bottom: 1px solid #334155;
             display: flex;
             align-items: center;
             gap: 10px;
         }
 
-        .slider-container input[type="range"] {
+        .sidebar-header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--white);
+        }
+
+        .sidebar-content {
             flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
         }
 
-        .slider-value {
-            min-width: 50px;
-            text-align: right;
-            font-weight: 600;
+        /* Main Content */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background: var(--white);
         }
 
-        .checkbox-wrapper {
+        .main-header {
+            height: 64px;
+            border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+        }
+
+        .project-badge {
+            background: #eff6ff;
+            color: var(--primary);
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Chat Area */
+        .chat-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            scroll-behavior: smooth;
+        }
+
+        .message {
+            display: flex;
+            gap: 16px;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .message.assistant .avatar {
+            background: #eff6ff;
+            color: var(--primary);
+        }
+
+        .message.user .avatar {
+            background: var(--primary);
+            color: white;
+        }
+
+        .message-content {
+            background: white;
+            padding: 16px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            line-height: 1.6;
+            font-size: 0.95rem;
+            position: relative;
+        }
+
+        .message.user .message-content {
+            background: var(--primary);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant .message-content {
+            background: white;
+            border: 1px solid var(--border);
+            border-bottom-left-radius: 4px;
+        }
+
+        /* Input Area */
+        .input-area {
+            padding: 24px;
+            background: white;
+            border-top: 1px solid var(--border);
+        }
+
+        .input-container {
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+            background: var(--bg-chat);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            transition: border-color 0.2s;
+        }
+
+        .input-container:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+        }
+
+        textarea {
+            width: 100%;
+            padding: 16px 50px 16px 16px;
+            border: none;
+            background: transparent;
+            resize: none;
+            height: 60px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            outline: none;
+        }
+
+        .send-btn {
+            position: absolute;
+            right: 12px;
+            bottom: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .send-btn:hover {
+            background: var(--primary-hover);
+        }
+
+        /* Components */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
             gap: 8px;
         }
 
-        .checkbox-wrapper input[type="checkbox"] {
-            width: auto;
+        .btn-primary {
+            background: var(--primary);
+            color: white;
         }
 
-        .instructions {
-            background: #f8f9fa;
-            border-left: 4px solid #1a4d7a;
-            padding: 20px;
-            margin-bottom: 20px;
-            border-radius: 6px;
+        .btn-primary:hover {
+            background: var(--primary-hover);
         }
 
-        .instructions h2 {
-            color: #1a4d7a;
-            margin-bottom: 10px;
-            font-size: 1.3em;
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
         }
 
-        .instructions ol {
-            margin-left: 20px;
-            line-height: 1.8;
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
         }
 
-        .instructions li {
-            margin-bottom: 8px;
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
         }
 
-        .progress-container {
-            display: none;
-            background: white;
-            border: 2px solid #1a4d7a;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 20px 0;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.2);
         }
 
-        .progress-container.active {
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
             display: block;
+            margin-bottom: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #94a3b8;
         }
 
-        .progress-bar {
+        .form-input,
+        .form-select {
             width: 100%;
-            height: 30px;
-            background: #e0e0e0;
-            border-radius: 15px;
+            padding: 10px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.875rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-input:focus,
+        .form-select:focus {
+            border-color: var(--primary);
+        }
+
+        /* Sources Panel */
+        .sources-panel {
+            width: 300px;
+            background: white;
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+        }
+
+        .sources-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sources-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .source-card {
+            background: var(--bg-chat);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            font-size: 0.875rem;
+        }
+
+        .source-title {
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 4px;
+            font-size: 0.8rem;
+        }
+
+        .source-preview {
+            color: var(--text-light);
+            font-size: 0.8rem;
+            line-height: 1.5;
+            font-style: italic;
+        }
+
+        /* Utilities */
+        .hidden {
+            display: none !important;
+        }
+
+        .divider {
+            height: 1px;
+            background: #334155;
+            margin: 20px 0;
+        }
+
+        .section-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        /* Progress Bar */
+        .progress-bar {
+            height: 4px;
+            background: #334155;
+            border-radius: 2px;
             overflow: hidden;
-            margin: 10px 0;
+            margin-top: 8px;
         }
 
         .progress-fill {
             height: 100%;
-            background: linear-gradient(90deg, #1a4d7a 0%, #0d47a1 100%);
+            background: var(--primary);
             width: 0%;
             transition: width 0.3s ease;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        .sidebar ::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .sources-panel {
+                position: absolute;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                transform: translateX(100%);
+                z-index: 30;
+                box-shadow: -4px 0 10px rgba(0, 0, 0, 0.1);
+            }
+
+            .sources-panel.active {
+                transform: translateX(0);
+            }
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-weight: 600;
-            font-size: 12px;
+            z-index: 50;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
         }
 
-        .progress-text {
-            text-align: center;
-            margin-top: 10px;
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: white;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            border-radius: 12px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            transform: translateY(20px);
+            transition: transform 0.2s;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* File list modal - override pre-wrap for proper layout */
+        #fileListBody {
+            white-space: normal;
+            padding: 0;
+        }
+
+        .file-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            background: #fff;
+            transition: background 0.15s;
+        }
+
+        .file-list-item:hover {
+            background: #f8fafc;
+        }
+
+        .file-list-item:last-child {
+            border-bottom: none;
+        }
+
+        .file-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .file-name {
             font-weight: 500;
-            color: #333;
+            color: #334155;
+            word-break: break-word;
+            margin-bottom: 4px;
+        }
+
+        .file-meta {
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+
+        .file-delete-btn {
+            flex-shrink: 0;
+            margin-left: 16px;
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.15s;
+        }
+
+        .file-delete-btn:hover {
+            background: #fee2e2;
+            border-color: #fca5a5;
+        }
+
+        .empty-file-list {
+            text-align: center;
+            color: #64748b;
+            padding: 40px 20px;
+        }
+
+        /* Advanced Settings */
+        details {
+            margin-top: 12px;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        details summary {
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            user-select: none;
+        }
+
+        details[open] summary {
+            border-bottom: 1px solid #334155;
+        }
+
+        .advanced-content {
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        /* Tooltips */
+        .info-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-light);
+            font-size: 0.7rem;
+            margin-left: 6px;
+            cursor: help;
+            position: relative;
+        }
+
+        .info-icon:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            z-index: 100;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 6px;
+            border: 1px solid #334155;
+            width: max-content;
+            max-width: 200px;
+            white-space: normal;
+            text-align: center;
+        }
+
+        /* Citation Links */
+        .citation-link {
+            color: var(--primary);
+            cursor: pointer;
+            font-weight: 600;
+            padding: 0 2px;
+        }
+
+        .citation-link:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
+
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>📚 Document RAG Assistant</h1>
-            <p>HTML Version - No Installation Required</p>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <span>📚</span>
+            <h1>RAG Assistant</h1>
         </div>
 
-        <div class="content">
-            <div class="instructions">
-                <h2>📚 Document RAG Assistant</h2>
-                <ol>
-                    <li>Create or select a project above</li>
-                    <li>Upload your documents below</li>
-                    <li>Click 'Process Documents' to add them to the knowledge base</li>
-                    <li>Then ask questions in the chat!</li>
-                </ol>
-            </div>
-            <div id="statusMessage" class="status-message hidden"></div>
-
-            <!-- Projects Section -->
-            <div class="accordion">
-                <div class="accordion-header" onclick="toggleAccordion(this)">
-                    <span>📁 Projects</span>
-                    <span>▼</span>
+        <div class="sidebar-content">
+            <!-- Project Section -->
+            <div>
+                <div class="section-title">Current Project</div>
+                <div class="form-group">
+                    <select id="projectSelect" class="form-select" onchange="loadProject()">
+                        <option value="">Select a project...</option>
+                    </select>
                 </div>
-                <div class="accordion-content open">
-                    <div style="background: #e3f2fd; border-left: 4px solid #1a4d7a; padding: 12px; margin-bottom: 15px; border-radius: 4px;">
-                        <strong>Getting Started:</strong> To begin, create a new project by entering a name below and clicking "Create Project". Projects help you organize different sets of documents.
+                <button onclick="document.getElementById('newProjectModal').classList.remove('hidden')"
+                    class="btn btn-secondary" style="width: 100%">
+                    + New Project
+                </button>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Upload Section -->
+            <div>
+                <div class="section-title">Knowledge Base</div>
+                <div class="form-group">
+                    <label class="btn btn-secondary" style="width: 100%; cursor: pointer;">
+                        📄 Select Documents
+                        <input type="file" id="fileInput" multiple accept=".pdf,.txt,.md,.docx,.csv"
+                            style="display: none" onchange="updateFileCount(this)">
+                    </label>
+                    <div id="fileCount" style="font-size: 0.8rem; margin-top: 8px; color: #94a3b8;"></div>
+                </div>
+                <button onclick="processDocuments()" class="btn btn-primary" style="width: 100%">
+                    Process Documents
+                </button>
+
+                <div id="progressContainer" class="hidden">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
                     </div>
-                    <div style="margin-bottom: 15px;">
-                        <label for="newProjectName" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Create New Project</label>
-                        <div class="row">
-                            <input type="text" id="newProjectName" placeholder="Enter project name (e.g., 'client-a', 'research-2024')" style="flex: 3;">
-                            <button onclick="createProject()" style="flex: 1;">Create Project</button>
+                    <div id="progressText" style="font-size: 0.75rem; margin-top: 4px; text-align: right;"></div>
+                </div>
+
+                <div style="margin-top: 12px;">
+                    <button onclick="openManageFilesModal()" class="btn btn-secondary"
+                        style="width: 100%; font-size: 0.8rem;">
+                        🗑️ Manage Files
+                    </button>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Settings Toggle -->
+            <button onclick="toggleSettings()" class="btn btn-secondary" style="width: 100%">
+                ⚙️ Settings
+            </button>
+
+            <!-- Settings Panel (Hidden by default) -->
+            <div id="settingsPanel" class="hidden"
+                style="margin-top: 16px; background: #0f172a; padding: 16px; border-radius: 8px;">
+                <div class="form-group">
+                    <label class="form-label">
+                        API Key
+                        <span class="info-icon"
+                            data-tooltip="Your OpenAI API Key. Required to access AI models.">i</span>
+                    </label>
+                    <input type="password" id="apiKey" class="form-input" placeholder="sk-..." onchange="setApiKey()">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        Embedding Model
+                        <span class="info-icon"
+                            data-tooltip="Model used to convert text into numbers for search.">i</span>
+                    </label>
+                    <select id="embeddingModel" class="form-select" onchange="saveSettings()">
+                        <option value="text-embedding-3-large">Large (Best)</option>
+                        <option value="text-embedding-3-small">Small (Fast)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        Chat Model
+                        <span class="info-icon" data-tooltip="GPT-4o models are BEST for RAG (fast & accurate). GPT-5 models are for complex reasoning tasks.">i</span>
+                    </label>
+                    <select id="chatModel" class="form-select" onchange="saveSettings()">
+                        <optgroup label="⭐ Recommended for RAG">
+                            <option value="gpt-4o-mini" selected>GPT-4o Mini (Fast & Accurate)</option>
+                            <option value="gpt-4o">GPT-4o (Best Quality)</option>
+                        </optgroup>
+                        <optgroup label="🧠 Reasoning Models (Complex Tasks)">
+                            <option value="gpt-5.1">GPT-5.1 (Advanced Reasoning)</option>
+                            <option value="gpt-5">GPT-5 (Reasoning)</option>
+                            <option value="gpt-5-mini">GPT-5 Mini (Light Reasoning)</option>
+                            <option value="gpt-5-nano">GPT-5 Nano (Basic Reasoning)</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        Chunk Size
+                        <span class="info-icon"
+                            data-tooltip="Characters per text chunk. Larger chunks = more context but less precise search.">i</span>
+                    </label>
+                    <input type="number" id="chunkSize" class="form-input" value="1500" onchange="saveSettings()">
+                </div>
+
+                <details>
+                    <summary>Advanced Settings</summary>
+                    <div class="advanced-content">
+                        <div class="form-group">
+                            <label class="form-label">
+                                Chunk Overlap
+                                <span class="info-icon"
+                                    data-tooltip="Shared characters between chunks to preserve context at boundaries.">i</span>
+                            </label>
+                            <input type="number" id="chunkOverlap" class="form-input" value="300"
+                                onchange="saveSettings()">
                         </div>
-                        <p style="font-size: 12px; color: #666; margin-top: 5px;">Give your project a descriptive name to organize your documents.</p>
-                    </div>
-                    <div style="margin-bottom: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Load Existing Project</label>
-                        <div class="row">
-                            <select id="projectSelect" style="flex: 3;">
-                                <option value="">No projects yet - Create one above</option>
+                        <div class="form-group">
+                            <label class="form-label">
+                                Top K (Retrieval)
+                                <span class="info-icon"
+                                    data-tooltip="Number of text chunks to retrieve for the answer.">i</span>
+                            </label>
+                            <input type="number" id="topK" class="form-input" value="8" min="1" max="20"
+                                onchange="saveSettings()">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">
+                                Max Context Sections
+                                <span class="info-icon" data-tooltip="Max number of chunks to feed to the AI.">i</span>
+                            </label>
+                            <input type="number" id="maxContextSections" class="form-input" value="12" min="1" max="30"
+                                onchange="saveSettings()">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">
+                                Temperature
+                                <span class="info-icon"
+                                    data-tooltip="Creativity (0.0 = factual, 1.0 = creative). Recommended: 0.3 for RAG.">i</span>
+                            </label>
+                            <input type="number" id="temperature" class="form-input" value="0.3" min="0" max="1"
+                                step="0.1" onchange="saveSettings()">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">
+                                Response Style
+                                <span class="info-icon"
+                                    data-tooltip="Override model verbosity. 'Auto' uses model-optimized defaults.">i</span>
+                            </label>
+                            <select id="responseStyle" class="form-select" onchange="saveSettings()">
+                                <option value="auto" selected>Auto (Model-Optimized)</option>
+                                <option value="concise">Concise</option>
+                                <option value="balanced">Balanced</option>
+                                <option value="detailed">Detailed</option>
                             </select>
-                            <button onclick="loadProject()" style="flex: 1;">Load Selected</button>
-                            <button onclick="refreshProjects()" class="secondary" style="flex: 1;">Refresh</button>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">
+                                Score Threshold
+                                <span class="info-icon"
+                                    data-tooltip="Minimum similarity score for a chunk to be used (0.0 - 1.0).">i</span>
+                            </label>
+                            <input type="number" id="scoreThreshold" class="form-input" value="0.5" min="0" max="1"
+                                step="0.05" onchange="saveSettings()">
                         </div>
                     </div>
-                    <div id="projectStatus" style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
-                        No project selected. Create a project above to get started.
-                    </div>
-                </div>
-            </div>
+                </details>
 
-            <!-- API Key Section -->
-            <div class="accordion">
-                <div class="accordion-header" onclick="toggleAccordion(this)">
-                    <span>🔑 API Key</span>
-                    <span>▼</span>
-                </div>
-                <div class="accordion-content">
-                    <div class="form-group">
-                        <label for="apiKey">OpenAI API Key</label>
-                        <input type="password" id="apiKey" placeholder="sk-... (stored in browser only)">
-                    </div>
-                    <p style="font-size: 13px; color: #666; margin-bottom: 15px;">
-                        Get your API key: <a href="https://platform.openai.com/account/api-keys" target="_blank">https://platform.openai.com/account/api-keys</a><br>
-                        Your key is stored only in your browser and never shared.
-                    </p>
-                    <button onclick="setApiKey()">Set API Key</button>
-                    <div id="apiKeyStatus" style="margin-top: 10px;"></div>
-                </div>
-            </div>
-
-            <!-- Agent Instructions -->
-            <div class="accordion">
-                <div class="accordion-header" onclick="toggleAccordion(this)">
-                    <span>🤖 Agent Instructions</span>
-                    <span>▼</span>
-                </div>
-                <div class="accordion-content">
-                    <p style="font-size: 13px; color: #666; margin-bottom: 15px;">
-                        Leave blank for standard questions. Only add instructions if you want to customize how the AI responds.
-                    </p>
-                    <textarea id="customInstructions" placeholder="Example: Always provide answers in bullet points and use a professional tone."></textarea>
-                </div>
-            </div>
-
-            <!-- Advanced Settings -->
-            <div class="accordion">
-                <div class="accordion-header" onclick="toggleAccordion(this)">
-                    <span>⚙️ Advanced Settings</span>
-                    <span>▼</span>
-                </div>
-                <div class="accordion-content">
-                    <p style="font-size: 13px; color: #666; margin-bottom: 20px; padding: 10px; background: #f8f9fa; border-radius: 4px;">
-                        <strong>Tip:</strong> These settings control how documents are processed and how answers are generated. Default values work well for most cases. Only adjust if you need specific behavior.
-                    </p>
-
-                    <div class="form-group">
-                        <label for="embeddingModel">Embedding Model</label>
-                        <select id="embeddingModel">
-                            <option value="text-embedding-3-large">text-embedding-3-large (Recommended - Best Quality)</option>
-                            <option value="text-embedding-3-small">text-embedding-3-small (Faster & Cheaper)</option>
-                        </select>
-                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                            <strong>What it does:</strong> Converts text into numerical vectors for similarity search.<br>
-                            <strong>Large model:</strong> Best accuracy, finds more relevant content. Higher cost (~6x more expensive).<br>
-                            <strong>Small model:</strong> ~95% of large model performance, much faster and cheaper. Good for most use cases.
-                        </p>
-                    </div>
-
-                    <h4 style="margin: 20px 0 10px 0;">Chunking Settings</h4>
-                    <p style="font-size: 12px; color: #666; margin-bottom: 15px;">How documents are split into smaller pieces for processing.</p>
-                    
-                    <div class="form-group">
-                        <label for="chunkSize">Chunk Size (characters)</label>
-                        <input type="number" id="chunkSize" value="1500" min="100" max="10000" step="100">
-                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                            <strong>What it does:</strong> Size of each text chunk extracted from documents.<br>
-                            <strong>Smaller (500-1000):</strong> More precise retrieval, better for specific facts. More chunks to process.<br>
-                            <strong>Larger (2000-3000):</strong> More context per chunk, better for complex topics. Fewer chunks, may miss specific details.<br>
-                            <strong>Default (1500):</strong> Good balance for most documents.
-                        </p>
-                    </div>
-                    <div class="form-group">
-                        <label for="chunkOverlap">Chunk Overlap (characters)</label>
-                        <input type="number" id="chunkOverlap" value="300" min="0" max="5000" step="50">
-                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                            <strong>What it does:</strong> How much text overlaps between adjacent chunks.<br>
-                            <strong>No overlap (0):</strong> Faster processing, but may break sentences/ideas at boundaries.<br>
-                            <strong>More overlap (200-400):</strong> Preserves context across chunks, better for long documents. Slightly more processing.<br>
-                            <strong>Default (300):</strong> ~20% of chunk size, good for maintaining context.
-                        </p>
-                    </div>
-
-                    <h4 style="margin: 20px 0 10px 0;">Retrieval Settings</h4>
-                    <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Controls how many document chunks are used to answer questions.</p>
-                    
-                    <div class="form-group">
-                        <label for="topK">Initial Chunks Retrieved</label>
-                        <input type="number" id="topK" value="8" min="1" max="50" step="1">
-                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                            <strong>What it does:</strong> How many chunks to initially search for when answering.<br>
-                            <strong>Fewer (3-5):</strong> Faster, cheaper, but may miss relevant information.<br>
-                            <strong>More (15-20):</strong> Better recall, finds more relevant content. Slower and more expensive.<br>
-                            <strong>Default (8):</strong> Good balance between speed and thoroughness.
-                        </p>
-                    </div>
-                    <div class="form-group">
-                        <label for="maxContextSections">Max Context Sections</label>
-                        <input type="number" id="maxContextSections" value="12" min="1" max="30" step="1">
-                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                            <strong>What it does:</strong> Maximum chunks sent to the AI for generating answers.<br>
-                            <strong>Fewer (5-8):</strong> Faster responses, lower cost, focused answers. May miss related context.<br>
-                            <strong>More (15-20):</strong> More comprehensive answers, better for complex questions. Slower, higher cost.<br>
-                            <strong>Default (12):</strong> Good for most questions, balances detail and speed.
-                        </p>
-                    </div>
-                    <div class="form-group">
-                        <label for="scoreThreshold">Similarity Score Threshold</label>
-                        <div class="slider-container">
-                            <input type="range" id="scoreThreshold" min="0" max="1" step="0.05" value="0.5" oninput="updateSliderValue(this, 'scoreThresholdValue')">
-                            <span class="slider-value" id="scoreThresholdValue">0.5</span>
-                        </div>
-                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                            <strong>What it does:</strong> Minimum similarity required to include a chunk in answers.<br>
-                            <strong>Lower (0.0-0.3):</strong> More lenient, includes more chunks. Better recall but may include less relevant content.<br>
-                            <strong>Higher (0.6-0.8):</strong> Stricter, only very similar chunks. More precise but may miss related information.<br>
-                            <strong>Default (0.5):</strong> Balanced - includes relevant chunks while filtering out noise.<br>
-                            <strong>Tip:</strong> If answers miss information, lower this. If answers include irrelevant content, raise it.
-                        </p>
-                    </div>
-
-                    <h4 style="margin: 20px 0 10px 0;">Response Settings</h4>
-                    <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Controls how the AI generates its responses.</p>
-                    
-                    <div class="form-group">
-                        <label for="temperature">Temperature</label>
-                        <div class="slider-container">
-                            <input type="range" id="temperature" min="0" max="1" step="0.1" value="0.2" oninput="updateSliderValue(this, 'temperatureValue')">
-                            <span class="slider-value" id="temperatureValue">0.2</span>
-                        </div>
-                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                            <strong>What it does:</strong> Controls randomness and creativity in responses.<br>
-                            <strong>Lower (0.0-0.3):</strong> More focused, factual, consistent answers. Best for technical documents and precise information.<br>
-                            <strong>Higher (0.6-0.9):</strong> More creative, varied wording. Better for creative writing but less reliable for facts.<br>
-                            <strong>Default (0.2):</strong> Balanced - factual but with natural language variation.<br>
-                            <strong>Tip:</strong> Keep it low (0.1-0.3) for document Q&A. Only increase if you want more creative responses.
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Progress Bar (shown during document processing) -->
-            <div id="progressContainer" class="progress-container">
-                <div class="progress-text" id="progressText">Processing documents...</div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill">0%</div>
-                </div>
-            </div>
-
-            <!-- Document Upload -->
-            <div style="margin: 20px 0;">
-                <div class="row">
-                    <div class="file-input-wrapper" style="flex: 3;">
-                        <input type="file" id="fileInput" multiple accept=".pdf,.txt,.md,.docx,.csv">
-                    </div>
-                    <div style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
-                        <div class="checkbox-wrapper">
-                            <input type="checkbox" id="appendCheckbox">
-                            <label for="appendCheckbox" style="margin: 0;">Append to existing</label>
-                        </div>
-                        <button onclick="processDocuments()">Process Documents</button>
-                        <button onclick="clearKnowledge()" class="danger">Clear Project Knowledge</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Chat Interface -->
-            <div class="chat-container">
-                <div class="chat-main">
-                    <div class="chatbox" id="chatbox">
-                        <div style="text-align: center; color: #999; padding: 20px;">
-                            No messages yet. Upload documents and ask questions!
-                        </div>
-                    </div>
-                    <div class="row">
-                        <textarea id="userInput" placeholder="Ask a question about your documents..." rows="4" style="flex: 4;" onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }"></textarea>
-                        <div style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
-                            <button onclick="sendMessage()">Send</button>
-                            <button onclick="clearChat()" class="secondary">Clear Chat</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="chat-sidebar">
-                    <div class="sources-panel">
-                        <h3>📄 Indexed Documents</h3>
-                        <div id="indexedDocuments" class="sources-list">No documents indexed yet.</div>
-                    </div>
-                    <div class="sources-panel">
-                        <h3>📚 Sources for Last Answer</h3>
-                        <div id="answerSources" class="sources-list">No responses yet.</div>
-                    </div>
-                </div>
+                <button onclick="clearKnowledge()" class="btn btn-danger"
+                    style="width: 100%; font-size: 0.8rem; margin-top: 16px;">
+                    Clear Project Data
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- External Libraries -->
+    <!-- Main Content -->
+    <div class="main">
+        <div class="main-header">
+            <div class="project-badge" id="currentProjectBadge">
+                <span>📁</span>
+                <span id="currentProjectName">No Project Selected</span>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="clearChat()" class="btn btn-secondary"
+                    style="color: var(--text-main); background: #f1f5f9; font-size: 0.8rem;">
+                    🗑️ Clear Chat
+                </button>
+                <button onclick="toggleSources()" class="btn btn-secondary"
+                    style="color: var(--text-main); background: #f1f5f9;">
+                    📑 Sources
+                </button>
+            </div>
+        </div>
+
+        <div class="chat-area" id="chatbox">
+            <!-- Welcome Message -->
+            <div class="message assistant">
+                <div class="avatar">🤖</div>
+                <div class="message-content">
+                    Hello! Select a project and upload some documents to get started. I can answer questions based on
+                    your knowledge base.
+                </div>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <div class="input-container">
+                <textarea id="userInput" placeholder="Ask a question about your documents..."
+                    onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }"></textarea>
+                <button onclick="sendMessage()" class="send-btn">
+                    ➤
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel: Sources -->
+    <div class="sources-panel" id="sourcesPanel">
+        <div class="sources-header">
+            Sources
+            <button onclick="toggleSources()"
+                style="background:none; border:none; cursor:pointer; font-size: 1.2rem;">×</button>
+        </div>
+        <div class="sources-content" id="answerSources">
+            <div style="color: var(--text-light); text-align: center; margin-top: 40px;">
+                Citations will appear here after you ask a question.
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Source Content -->
+    <div id="sourceModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle" style="font-weight: 600;">Source Content</h3>
+                <button onclick="closeSourceModal()"
+                    style="background:none; border:none; cursor:pointer; font-size: 1.5rem;">×</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
+    <!-- Modal: Manage Files -->
+    <div id="manageFilesModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 style="font-weight: 600;">📁 Manage Files</h3>
+                <button onclick="document.getElementById('manageFilesModal').classList.remove('active')"
+                    style="background:none; border:none; cursor:pointer; font-size: 1.5rem; color: #64748b;">×</button>
+            </div>
+            <div class="modal-body" id="fileListBody" style="max-height: 400px; overflow-y: auto;">
+                <!-- File list injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: New Project -->
+    <div id="newProjectModal" class="hidden"
+        style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 50;">
+        <div
+            style="background: white; padding: 24px; border-radius: 12px; width: 400px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
+            <h3 style="margin-bottom: 16px; font-weight: 600;">Create New Project</h3>
+            <input type="text" id="newProjectName" class="form-input"
+                style="background: white; color: #333; border: 1px solid #e2e8f0; margin-bottom: 16px;"
+                placeholder="Project Name">
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button onclick="document.getElementById('newProjectModal').classList.add('hidden')"
+                    class="btn btn-secondary" style="background: #f1f5f9; color: #333;">Cancel</button>
+                <button onclick="createProject()" class="btn btn-primary">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Toast -->
+    <div id="statusMessage" class="hidden"
+        style="position: fixed; top: 20px; right: 20px; padding: 12px 24px; border-radius: 8px; color: white; font-weight: 500; z-index: 100; animation: slideIn 0.3s ease;">
+    </div>
+
+    <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
-
     <script>
         // Initialize PDF.js
         if (typeof pdfjsLib !== 'undefined') {
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         }
 
-        // Application State
+        // State
         let state = {
             apiKey: localStorage.getItem('openai_api_key') || '',
             currentProject: null,
             projects: [],
-            documents: [],
             chunks: [],
-            chatHistory: [],
             embeddingModel: 'text-embedding-3-large',
+            chatModel: 'gpt-4o-mini',
             chunkSize: 1500,
             chunkOverlap: 300,
             topK: 8,
             maxContextSections: 12,
             scoreThreshold: 0.5,
-            temperature: 0.2
+            temperature: 0.3,
+            responseStyle: 'auto', // 'auto', 'concise', 'balanced', 'detailed'
+            currentResponseChunks: []
         };
 
-        // Initialize
+        // DOM Elements
+        const els = {
+            chatbox: document.getElementById('chatbox'),
+            userInput: document.getElementById('userInput'),
+            projectSelect: document.getElementById('projectSelect'),
+            sourcesPanel: document.getElementById('sourcesPanel'),
+            statusMessage: document.getElementById('statusMessage')
+        };
+
+        // Init
         document.addEventListener('DOMContentLoaded', () => {
-            if (state.apiKey) {
-                document.getElementById('apiKey').value = state.apiKey;
-            }
+            if (state.apiKey) document.getElementById('apiKey').value = state.apiKey;
             loadProjects();
             loadSettings();
         });
 
-        // Accordion Toggle
-        function toggleAccordion(header) {
-            const content = header.nextElementSibling;
-            const isOpen = content.classList.contains('open');
-            document.querySelectorAll('.accordion-content').forEach(acc => acc.classList.remove('open'));
-            if (!isOpen) {
-                content.classList.add('open');
-            }
+        // UI Functions
+        function toggleSettings() {
+            document.getElementById('settingsPanel').classList.toggle('hidden');
         }
 
-        // Slider Value Update
-        function updateSliderValue(slider, valueId) {
-            document.getElementById(valueId).textContent = slider.value;
+        function toggleSources() {
+            els.sourcesPanel.classList.toggle('hidden');
+            // For mobile/responsive
+            els.sourcesPanel.classList.toggle('active');
         }
 
-        // Show Status Message
-        function showStatus(message, type = 'info') {
-            const statusEl = document.getElementById('statusMessage');
-            statusEl.textContent = message;
-            statusEl.className = `status-message ${type}`;
-            statusEl.classList.remove('hidden');
-            setTimeout(() => {
-                statusEl.classList.add('hidden');
-            }, 5000);
+        function updateFileCount(input) {
+            const count = input.files.length;
+            document.getElementById('fileCount').textContent = count > 0 ? `${count} file(s) selected` : '';
         }
 
-        // API Key Management
-        function setApiKey() {
-            const apiKey = document.getElementById('apiKey').value.trim();
-            if (!apiKey) {
-                showStatus('⚠️ Please enter an API key.', 'error');
-                return;
-            }
-            if (!apiKey.startsWith('sk-')) {
-                showStatus('⚠️ API key should start with "sk-".', 'error');
-                return;
-            }
-            if (apiKey.length < 20) {
-                showStatus('⚠️ API key appears to be truncated. OpenAI keys are typically 51 characters long.', 'error');
-                return;
-            }
-            state.apiKey = apiKey;
-            localStorage.setItem('openai_api_key', apiKey);
-            document.getElementById('apiKeyStatus').innerHTML = '<span style="color: green;">✅ API key configured.</span>';
-            showStatus('✅ API key configured successfully.', 'success');
+        function showStatus(msg, type = 'info') {
+            const el = els.statusMessage;
+            el.textContent = msg;
+            el.className = ''; // Reset
+            el.style.backgroundColor = type === 'error' ? '#ef4444' : (type === 'success' ? '#10b981' : '#3b82f6');
+            el.classList.remove('hidden');
+            setTimeout(() => el.classList.add('hidden'), 3000);
         }
 
-        // Project Management
-        async function loadProjects() {
-            try {
-                const projects = await getProjectsFromStorage();
-                state.projects = projects;
-                const select = document.getElementById('projectSelect');
-                select.innerHTML = '<option value="">No projects yet</option>';
-                projects.forEach(project => {
-                    const option = document.createElement('option');
-                    option.value = project.name;
-                    option.textContent = project.displayName;
-                    select.appendChild(option);
-                });
-            } catch (error) {
-                console.error('Error loading projects:', error);
-            }
-        }
+        // --- Core Logic ---
 
         async function createProject() {
             const name = document.getElementById('newProjectName').value.trim();
-            if (!name) {
-                showStatus('⚠️ Enter a project name to create.', 'error');
-                return;
-            }
+            if (!name) return showStatus('Enter a project name', 'error');
+
             const project = {
-                name: sanitizeProjectName(name),
+                name: name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
                 displayName: name,
                 files: [],
-                chunks: 0
+                chunks: 0,
+                chatHistory: []
             };
+
             await saveProjectToStorage(project);
             state.currentProject = project;
             await loadProjects();
             document.getElementById('projectSelect').value = project.name;
-            updateProjectStatus();
-            showStatus(`✅ Project "${name}" created.`, 'success');
+            loadProject(); // Trigger load
+            document.getElementById('newProjectModal').classList.add('hidden');
+            showStatus('Project created', 'success');
+        }
+
+        async function loadProjects() {
+            state.projects = await getProjectsFromStorage();
+            const select = document.getElementById('projectSelect');
+            select.innerHTML = '<option value="">Select a project...</option>';
+            state.projects.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.name;
+                opt.textContent = p.displayName;
+                select.appendChild(opt);
+            });
         }
 
         async function loadProject() {
-            const select = document.getElementById('projectSelect');
-            const projectName = select.value;
-            if (!projectName) {
-                showStatus('⚠️ Select a project to load.', 'error');
-                return;
-            }
-            try {
-                const project = await getProjectFromStorage(projectName);
-                if (!project) {
-                    showStatus('⚠️ Project not found.', 'error');
-                    return;
-                }
+            const name = document.getElementById('projectSelect').value;
+            if (!name) return;
+
+            const project = await getProjectFromStorage(name);
+            if (project) {
                 state.currentProject = project;
-                state.chunks = await getChunksFromStorage(projectName);
-                updateProjectStatus();
-                updateIndexedDocuments();
-                showStatus(`✅ Loaded project "${project.displayName}".`, 'success');
-            } catch (error) {
-                showStatus('⚠️ Error loading project: ' + error.message, 'error');
+                state.chunks = await getChunksFromStorage(name);
+                document.getElementById('currentProjectName').textContent = project.displayName;
+
+                // Load Chat History
+                els.chatbox.innerHTML = '';
+                if (project.chatHistory && project.chatHistory.length > 0) {
+                    project.chatHistory.forEach(msg => renderMessageToUI(msg.role, msg.content));
+                } else {
+                    renderWelcomeMessage();
+                }
+
+                showStatus(`Loaded ${project.displayName}`, 'success');
             }
         }
 
-        async function refreshProjects() {
-            await loadProjects();
-            showStatus('✅ Projects refreshed.', 'success');
+        function renderWelcomeMessage() {
+            els.chatbox.innerHTML = `
+                <div class="message assistant">
+                    <div class="avatar">🤖</div>
+                    <div class="message-content">
+                        Hello! Select a project and upload some documents to get started. I can answer questions based on your knowledge base.
+                    </div>
+                </div>`;
         }
 
-        function sanitizeProjectName(name) {
-            return name.toLowerCase().replace(/[^a-z0-9._-]/g, '-').replace(/^-+|-+$/g, '');
-        }
-
-        function updateProjectStatus() {
-            const statusEl = document.getElementById('projectStatus');
-            if (!state.currentProject) {
-                statusEl.textContent = 'No project selected.';
-                return;
+        function setApiKey() {
+            const key = document.getElementById('apiKey').value.trim();
+            if (key.startsWith('sk-')) {
+                state.apiKey = key;
+                localStorage.setItem('openai_api_key', key);
+                showStatus('API Key saved', 'success');
+            } else {
+                showStatus('Invalid API Key', 'error');
             }
-            const fileCount = state.currentProject.files.length;
-            const chunkCount = state.currentProject.chunks;
-            statusEl.innerHTML = `<strong>Current project:</strong> ${state.currentProject.displayName}<br>${chunkCount} chunks across ${fileCount} source files.`;
         }
 
         // Document Processing
         async function processDocuments() {
-            if (!state.apiKey) {
-                showStatus('⚠️ Please set your API key first.', 'error');
-                return;
-            }
-            if (!state.currentProject) {
-                showStatus('⚠️ Please create or select a project first.', 'error');
-                return;
-            }
+            if (!state.apiKey) return showStatus('Set API Key first', 'error');
+            if (!state.currentProject) return showStatus('Select a project first', 'error');
 
-            const fileInput = document.getElementById('fileInput');
-            const files = fileInput.files;
-            if (files.length === 0) {
-                showStatus('⚠️ Please select at least one file.', 'error');
-                return;
-            }
+            const files = document.getElementById('fileInput').files;
+            if (files.length === 0) return showStatus('Select files to upload', 'error');
 
-            const append = document.getElementById('appendCheckbox').checked;
-            if (!append) {
-                state.chunks = [];
-                state.currentProject.files = [];
-            }
-
-            // Show progress container
             const progressContainer = document.getElementById('progressContainer');
             const progressFill = document.getElementById('progressFill');
             const progressText = document.getElementById('progressText');
-            progressContainer.classList.add('active');
-            
-            showStatus('📄 Processing documents...', 'info');
+
+            progressContainer.classList.remove('hidden');
 
             try {
-                const embeddingModel = document.getElementById('embeddingModel').value;
-                state.embeddingModel = embeddingModel;
-                state.chunkSize = parseInt(document.getElementById('chunkSize').value);
-                state.chunkOverlap = parseInt(document.getElementById('chunkOverlap').value);
+                let processed = 0;
+                const total = files.length;
 
-                const totalFiles = files.length;
-                let processedFiles = 0;
-                let totalChunks = 0;
+                for (let i = 0; i < total; i++) {
+                    const file = files[i];
+                    progressText.textContent = `Processing ${file.name}...`;
+                    progressFill.style.width = `${(i / total) * 100}%`;
 
-                for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
-                    const file = files[fileIndex];
-                    
-                    // Update progress: Extracting text
-                    const fileProgress = (fileIndex / totalFiles) * 100;
-                    progressFill.style.width = fileProgress + '%';
-                    progressFill.textContent = Math.round(fileProgress) + '%';
-                    progressText.textContent = `Extracting text from ${file.name}... (${fileIndex + 1}/${totalFiles})`;
-
-                    const extractionResult = await extractTextFromFile(file);
-                    if (!extractionResult || (!extractionResult.text && !extractionResult.pages)) {
-                        showStatus(`⚠️ No text content found in ${file.name}.`, 'error');
-                        continue;
+                    // Overwrite Logic: Check if file exists and delete it first
+                    if (state.currentProject.files.includes(file.name)) {
+                        await deleteFile(file.name, false); // false = don't reload project yet
                     }
 
-                    // Use pages array if available, otherwise use text
-                    // For PDFs, we want to use the pages array to maintain page number mapping
-                    const pages = extractionResult.pages || [];
-                    const text = pages.length > 0 
-                        ? pages.map(p => p.text).join('\n')  // Reconstruct from pages to ensure alignment
-                        : extractionResult.text;
+                    const extraction = await extractTextFromFile(file);
+                    if (!extraction.text && !extraction.pages.length) continue;
 
-                    // Update progress: Chunking
-                    progressText.textContent = `Chunking text from ${file.name}... (${fileIndex + 1}/${totalFiles})`;
+                    const text = extraction.pages.length > 0
+                        ? extraction.pages.map(p => p.text).join('\n')
+                        : extraction.text;
 
-                    const chunks = chunkTextWithPages(text, pages, state.chunkSize, state.chunkOverlap, file.name);
+                    const chunks = chunkTextWithPages(text, extraction.pages, state.chunkSize, state.chunkOverlap);
 
-                    // Update progress: Generating embeddings
-                    progressText.textContent = `Generating embeddings for ${file.name}... (${fileIndex + 1}/${totalFiles})`;
-                    const chunkTexts = chunks.map(c => c.text);
-                    const embeddings = await generateEmbeddings(chunkTexts, embeddingModel);
+                    // Batch Embeddings
+                    const embeddings = await generateEmbeddings(chunks.map(c => c.text), state.embeddingModel);
 
-                    for (let i = 0; i < chunks.length; i++) {
-                        // Explicitly get page number, defaulting to null if not available
-                        let pageNum = null;
-                        if (chunks[i] && chunks[i].hasOwnProperty('page')) {
-                            const pageValue = chunks[i].page;
-                            if (pageValue !== null && pageValue !== undefined && pageValue !== '') {
-                                const num = Number(pageValue);
-                                if (!isNaN(num) && num > 0) {
-                                    pageNum = Math.floor(num);
-                                }
-                            }
-                        }
-                        
-                        const chunk = {
-                            id: generateId(),
-                            text: chunks[i].text,
-                            embedding: embeddings[i],
-                            source: file.name,
-                            page: pageNum, // Explicitly set page number (null for non-PDF files)
-                            project: state.currentProject.name
-                        };
-                        
-                        // Debug: Log first chunk to verify page is set
-                        if (i === 0 && file.name.toLowerCase().endsWith('.pdf')) {
-                            console.log('First PDF chunk created:', {
-                                source: chunk.source,
-                                page: chunk.page,
-                                hasPage: 'page' in chunk
-                            });
-                        }
-                        
-                        state.chunks.push(chunk);
-                    }
+                    const newChunks = chunks.map((chunk, idx) => ({
+                        id: Date.now() + Math.random().toString(36),
+                        text: chunk.text,
+                        embedding: embeddings[idx],
+                        source: file.name,
+                        page: chunk.page,
+                        project: state.currentProject.name
+                    }));
 
-                    totalChunks += chunks.length;
-                    processedFiles++;
-                    
+                    state.chunks.push(...newChunks);
                     if (!state.currentProject.files.includes(file.name)) {
                         state.currentProject.files.push(file.name);
                     }
+                    processed++;
                 }
-
-                // Update progress: Saving
-                progressText.textContent = 'Saving to database...';
-                progressFill.style.width = '95%';
-                progressFill.textContent = '95%';
 
                 state.currentProject.chunks = state.chunks.length;
                 await saveProjectToStorage(state.currentProject);
                 await saveChunksToStorage(state.currentProject.name, state.chunks);
-                
-                // Complete
+
                 progressFill.style.width = '100%';
-                progressFill.textContent = '100%';
-                progressText.textContent = 'Complete!';
-                
-                updateProjectStatus();
-                updateIndexedDocuments();
-                showStatus(`✅ Processed ${processedFiles} file(s). Created ${totalChunks} chunks.`, 'success');
-                fileInput.value = '';
-                
-                // Hide progress after a moment
-                setTimeout(() => {
-                    progressContainer.classList.remove('active');
-                }, 2000);
-            } catch (error) {
-                progressContainer.classList.remove('active');
-                showStatus('⚠️ Error processing documents: ' + error.message, 'error');
-                console.error(error);
+                progressText.textContent = 'Done!';
+                showStatus(`Processed ${processed} files`, 'success');
+                setTimeout(() => progressContainer.classList.add('hidden'), 2000);
+
+            } catch (e) {
+                console.error(e);
+                showStatus('Error: ' + e.message, 'error');
+                progressContainer.classList.add('hidden');
             }
         }
 
-        async function extractTextFromFile(file) {
-            const extension = file.name.split('.').pop().toLowerCase();
-            
-            if (extension === 'pdf') {
-                return await extractTextFromPDF(file);
-            } else if (extension === 'docx') {
-                return await extractTextFromDOCX(file);
-            } else if (['txt', 'md', 'csv'].includes(extension)) {
-                return await extractTextFromText(file);
-            } else {
-                // Try as text file
-                return await extractTextFromText(file);
+        // File Management
+        function openManageFilesModal() {
+            if (!state.currentProject) return showStatus('No project selected', 'error');
+            renderFileList();
+            document.getElementById('manageFilesModal').classList.add('active');
+        }
+
+        function renderFileList() {
+            const container = document.getElementById('fileListBody');
+            if (!state.currentProject.files || state.currentProject.files.length === 0) {
+                container.innerHTML = '<div class="empty-file-list">No files in this project.</div>';
+                return;
             }
+
+            const html = state.currentProject.files.map(file => {
+                const chunkCount = state.chunks.filter(c => c.source === file).length;
+                // Escape filename for safe use in onclick
+                const escapedFile = file.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                return `
+                    <div class="file-list-item">
+                        <div class="file-info">
+                            <div class="file-name">${file}</div>
+                            <div class="file-meta">${chunkCount} chunks</div>
+                        </div>
+                        <button onclick="deleteFile('${escapedFile}')" class="file-delete-btn">
+                            🗑️ Delete
+                        </button>
+                    </div>
+                `;
+            }).join('');
+            container.innerHTML = html;
+        }
+
+        async function deleteFile(fileName, reload = true) {
+            if (!state.currentProject) return;
+
+            // Remove chunks
+            state.chunks = state.chunks.filter(c => c.source !== fileName);
+
+            // Remove from project file list
+            state.currentProject.files = state.currentProject.files.filter(f => f !== fileName);
+            state.currentProject.chunks = state.chunks.length;
+
+            // Save
+            await saveProjectToStorage(state.currentProject);
+            await saveChunksToStorage(state.currentProject.name, state.chunks);
+
+            if (reload) {
+                renderFileList();
+                showStatus(`Deleted ${fileName}`, 'success');
+            }
+        }
+
+        // Extraction Helpers
+        async function extractTextFromFile(file) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (ext === 'pdf') return await extractTextFromPDF(file);
+            if (ext === 'docx') return await extractTextFromDOCX(file);
+            return await extractTextFromText(file);
         }
 
         async function extractTextFromPDF(file) {
-            try {
-                const arrayBuffer = await file.arrayBuffer();
-                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                const pages = [];
-                let fullText = '';
-                
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    const page = await pdf.getPage(i);
-                    const textContent = await page.getTextContent();
-                    const pageText = textContent.items.map(item => item.str).join(' ');
-                    pages.push({
-                        pageNumber: i,
-                        text: pageText
-                    });
-                    fullText += pageText + '\n';
-                }
-                
-                return {
-                    text: fullText,
-                    pages: pages
-                };
-            } catch (error) {
-                throw new Error(`Failed to extract text from PDF: ${error.message}`);
+            const data = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(data).promise;
+            const pages = [];
+            let fullText = '';
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                const text = content.items.map(item => item.str).join(' ');
+                pages.push({ pageNumber: i, text });
+                fullText += text + '\n';
             }
+            return { text: fullText, pages };
         }
 
         async function extractTextFromDOCX(file) {
-            try {
-                const arrayBuffer = await file.arrayBuffer();
-                const result = await mammoth.extractRawText({ arrayBuffer });
-                return {
-                    text: result.value,
-                    pages: [] // DOCX doesn't have page numbers
-                };
-            } catch (error) {
-                throw new Error(`Failed to extract text from DOCX: ${error.message}`);
-            }
+            const arrayBuffer = await file.arrayBuffer();
+            const result = await mammoth.extractRawText({ arrayBuffer });
+            return { text: result.value, pages: [] };
         }
 
         async function extractTextFromText(file) {
             const text = await file.text();
-            return {
-                text: text,
-                pages: [] // Text files don't have page numbers
-            };
+            return { text, pages: [] };
         }
 
-        function chunkTextWithPages(text, pages, chunkSize, chunkOverlap, fileName) {
+        // Chunking - uses passed parameters (size, overlap) for all calculations
+        function chunkTextWithPages(text, pages, size, overlap) {
             const chunks = [];
-            
-            // If we have page information, use it
+
             if (pages && pages.length > 0) {
-                // Reconstruct text from pages to ensure perfect alignment
                 const reconstructedText = pages.map(p => p.text).join('\n');
-                
-                // Create a mapping of character positions to page numbers
                 let charToPage = [];
                 let currentPos = 0;
                 for (let page of pages) {
@@ -1007,53 +1230,45 @@
                         charToPage[currentPos + i] = page.pageNumber;
                     }
                     currentPos += pageLength;
-                    // Add newline character mapping (if not last page)
                     if (currentPos < reconstructedText.length) {
-                        charToPage[currentPos] = page.pageNumber; // Newline belongs to current page
+                        charToPage[currentPos] = page.pageNumber;
                         currentPos += 1;
                     }
                 }
-                
-                // Use reconstructed text to ensure alignment
+
                 const textToChunk = reconstructedText;
-                
-                // Chunk the text
                 let start = 0;
                 while (start < textToChunk.length) {
                     const chunkStart = start;
-                    const end = Math.min(start + chunkSize, textToChunk.length);
+                    const end = Math.min(start + size, textToChunk.length);
                     let chunk = textToChunk.substring(start, end);
                     let actualEnd = end;
-                    
-                    // Try to break at sentence boundaries
+
                     if (end < textToChunk.length) {
                         const lastPeriod = chunk.lastIndexOf('. ');
                         const lastNewline = chunk.lastIndexOf('\n\n');
                         const breakPoint = Math.max(lastPeriod, lastNewline);
-                        if (breakPoint > chunkSize * 0.5) {
+                        if (breakPoint > size * 0.5) {
                             chunk = chunk.substring(0, breakPoint + 1);
                             actualEnd = start + breakPoint + 1;
-                            start = actualEnd - chunkOverlap;
+                            start = actualEnd - overlap;
                         } else {
-                            start = end - chunkOverlap;
+                            start = end - overlap;
                         }
                     } else {
                         start = textToChunk.length;
                     }
-                    
+
                     if (chunk.trim().length > 0) {
-                        // Determine page number for this chunk (use the start position, fallback to middle)
                         let chunkPage = charToPage[chunkStart];
                         if (!chunkPage && chunkStart < textToChunk.length) {
-                            // Try middle of chunk
                             const midPos = Math.min(chunkStart + Math.floor(chunk.length / 2), textToChunk.length - 1);
                             chunkPage = charToPage[midPos];
                         }
                         if (!chunkPage && chunkStart > 0) {
-                            // Try position just before chunk start
                             chunkPage = charToPage[chunkStart - 1];
                         }
-                        
+
                         chunks.push({
                             text: chunk.trim(),
                             page: chunkPage
@@ -1061,27 +1276,25 @@
                     }
                 }
             } else {
-                // No page information, chunk normally
                 let start = 0;
                 while (start < text.length) {
-                    const end = Math.min(start + chunkSize, text.length);
+                    const end = Math.min(start + size, text.length);
                     let chunk = text.substring(start, end);
-                    
-                    // Try to break at sentence boundaries
+
                     if (end < text.length) {
                         const lastPeriod = chunk.lastIndexOf('. ');
                         const lastNewline = chunk.lastIndexOf('\n\n');
                         const breakPoint = Math.max(lastPeriod, lastNewline);
-                        if (breakPoint > chunkSize * 0.5) {
+                        if (breakPoint > size * 0.5) {
                             chunk = chunk.substring(0, breakPoint + 1);
-                            start += breakPoint + 1 - chunkOverlap;
+                            start += breakPoint + 1 - overlap;
                         } else {
-                            start += chunkSize - chunkOverlap;
+                            start += size - overlap;
                         }
                     } else {
                         start = text.length;
                     }
-                    
+
                     if (chunk.trim().length > 0) {
                         chunks.push({
                             text: chunk.trim(),
@@ -1090,490 +1303,513 @@
                     }
                 }
             }
-            
             return chunks;
         }
 
+        // Embeddings & Search
         async function generateEmbeddings(texts, model) {
-            const response = await fetch('https://api.openai.com/v1/embeddings', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${state.apiKey}`
-                },
-                body: JSON.stringify({
-                    model: model,
-                    input: texts
-                })
-            });
+            const BATCH_SIZE = 20;
+            const allEmbeddings = [];
 
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error?.message || 'Failed to generate embeddings');
-            }
-
-            const data = await response.json();
-            return data.data.map(item => item.embedding);
-        }
-
-        // Vector Search
-        function cosineSimilarity(vecA, vecB) {
-            let dotProduct = 0;
-            let normA = 0;
-            let normB = 0;
-            for (let i = 0; i < vecA.length; i++) {
-                dotProduct += vecA[i] * vecB[i];
-                normA += vecA[i] * vecA[i];
-                normB += vecB[i] * vecB[i];
-            }
-            return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-        }
-
-        async function searchSimilarChunks(query, topK, maxSections, threshold) {
-            if (state.chunks.length === 0) {
-                throw new Error('No documents indexed. Upload files first.');
-            }
-
-            const queryEmbedding = await generateEmbeddings([query], state.embeddingModel);
-            const queryVec = queryEmbedding[0];
-
-            const scoredChunks = state.chunks.map(chunk => ({
-                chunk: chunk,
-                score: cosineSimilarity(queryVec, chunk.embedding)
-            }));
-
-            scoredChunks.sort((a, b) => b.score - a.score);
-
-            const filtered = scoredChunks
-                .filter(item => item.score >= threshold)
-                .slice(0, maxSections);
-
-            if (filtered.length === 0 && scoredChunks.length > 0) {
-                return scoredChunks.slice(0, Math.min(maxSections, topK)).map(item => item.chunk);
-            }
-
-            return filtered.map(item => item.chunk);
-        }
-
-        // Chat Functionality
-        async function sendMessage() {
-            const input = document.getElementById('userInput');
-            const message = input.value.trim();
-            if (!message) return;
-
-            if (!state.apiKey) {
-                showStatus('⚠️ Please set your API key first.', 'error');
-                return;
-            }
-
-            if (state.chunks.length === 0) {
-                showStatus('⚠️ No documents indexed. Upload files first.', 'error');
-                return;
-            }
-
-            addMessageToChat('user', message);
-            input.value = '';
-
-            try {
-                const topK = parseInt(document.getElementById('topK').value);
-                const maxSections = parseInt(document.getElementById('maxContextSections').value);
-                const threshold = parseFloat(document.getElementById('scoreThreshold').value);
-                state.temperature = parseFloat(document.getElementById('temperature').value);
-
-                const relevantChunks = await searchSimilarChunks(message, topK, maxSections, threshold);
-                
-                if (relevantChunks.length === 0) {
-                    addMessageToChat('assistant', 'I could not find relevant information in the documents to answer this question. Try rephrasing or upload more documents.');
-                    updateAnswerSources([]);
-                    return;
-                }
-
-                const context = formatContext(relevantChunks);
-                const customInstructions = document.getElementById('customInstructions').value.trim();
-                
-                await streamResponse(message, context, customInstructions);
-                updateAnswerSources(relevantChunks);
-            } catch (error) {
-                addMessageToChat('assistant', '⚠️ Error: ' + error.message);
-                showStatus('⚠️ Error: ' + error.message, 'error');
-            }
-        }
-
-        function formatContext(chunks) {
-            return chunks.map((chunk, idx) => {
-                // Check if page exists and is a valid number
-                const hasPage = chunk.hasOwnProperty('page') && chunk.page !== null && chunk.page !== undefined && !isNaN(chunk.page) && chunk.page > 0;
-                const pageInfo = hasPage ? ` (page ${chunk.page})` : '';
-                return `[${idx + 1}] ${chunk.source}${pageInfo}\n${chunk.text.substring(0, 2000)}`;
-            }).join('\n\n');
-        }
-
-        async function streamResponse(question, context, customInstructions) {
-            const history = state.chatHistory.slice(-6).map(([q, a]) => `User: ${q}\nAssistant: ${a}`).join('\n\n');
-            
-            const systemPrompt = `You are a meticulous research assistant analyzing documents. Answer the user's question using the provided context. You may infer answers from the context even if not explicitly stated. Look for related information, synonyms, and contextual clues. Cite the supporting snippets with bracketed references like [1] tied to the context order. Only say 'I do not have enough information' if the context truly contains no relevant information that could help answer the question, even indirectly.
-
-IMPORTANT: Never use tables in your responses. Always format information as plain text, lists, or paragraphs. Use bullet points, numbered lists, or descriptive paragraphs instead of tables.${customInstructions ? '\n\nAdditional instructions from the user:\n' + customInstructions : ''}`;
-            
-            const userPrompt = `Conversation so far:\n${history || '(no prior conversation)'}\n\nContext from documents:\n${context}\n\nQuestion: ${question}\n\nAnalyze the context carefully and provide a helpful answer. If the answer can be inferred from the context, provide it. Formulate your answer in markdown format, but DO NOT use tables. Use bullet points, numbered lists, or paragraphs instead.`;
-
-            const messageId = addMessageToChat('assistant', '');
-
-            try {
-                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            for (let i = 0; i < texts.length; i += BATCH_SIZE) {
+                const batch = texts.slice(i, i + BATCH_SIZE);
+                const res = await fetchWithRetry('https://api.openai.com/v1/embeddings', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${state.apiKey}`
                     },
-                    body: JSON.stringify({
-                        model: 'gpt-4o-mini',
+                    body: JSON.stringify({ model, input: batch })
+                });
+                const data = await res.json();
+                allEmbeddings.push(...data.data.map(d => d.embedding));
+            }
+            return allEmbeddings;
+        }
+
+        async function fetchWithRetry(url, opts, retries = 3) {
+            try {
+                const res = await fetch(url, opts);
+                if (!res.ok && retries > 0 && (res.status === 429 || res.status >= 500)) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    return fetchWithRetry(url, opts, retries - 1);
+                }
+                if (!res.ok) throw new Error((await res.json()).error?.message || 'API Error');
+                return res;
+            } catch (e) {
+                if (retries > 0) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    return fetchWithRetry(url, opts, retries - 1);
+                }
+                throw e;
+            }
+        }
+
+        function cosineSimilarity(a, b) {
+            let dot = 0, normA = 0, normB = 0;
+            for (let i = 0; i < a.length; i++) {
+                dot += a[i] * b[i];
+                normA += a[i] * a[i];
+                normB += b[i] * b[i];
+            }
+            return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+        }
+
+        // Chat
+        
+        // Model-specific configuration for consistent output across all OpenAI models
+        // isReasoning: true = o1/o3/GPT-5 series (different API params, use simplified prompts)
+        const MODEL_CONFIG = {
+            // GPT-5 series (reasoning models - use max_completion_tokens, no temp/top_p/penalties)
+            // These models use buildReasoningPrompt() for simpler, more direct instructions
+            'gpt-5.1': { maxTokens: 16000, isReasoning: true },
+            'gpt-5': { maxTokens: 16000, isReasoning: true },
+            'gpt-5-mini': { maxTokens: 8000, isReasoning: true },
+            'gpt-5-nano': { maxTokens: 4000, isReasoning: true },
+            // GPT-4o series (standard models - use max_tokens, supports temp/top_p/penalties)
+            // These are BEST for RAG - fast, accurate, good at following instructions
+            'gpt-4o': { maxTokens: 4096, tempMultiplier: 1.0, verbosityHint: 'balanced', isReasoning: false },
+            'gpt-4o-mini': { maxTokens: 4096, tempMultiplier: 0.9, verbosityHint: 'balanced', isReasoning: false },
+            // Default fallback (assume standard model)
+            'default': { maxTokens: 4096, tempMultiplier: 1.0, verbosityHint: 'balanced', isReasoning: false }
+        };
+
+        function getModelConfig(modelName) {
+            return MODEL_CONFIG[modelName] || MODEL_CONFIG['default'];
+        }
+
+        // Build prompt for STANDARD models (GPT-4o series)
+        function buildSystemPrompt(verbosityHint, numSources) {
+            const baseInstructions = `You are a knowledgeable assistant that answers questions based on the provided source documents. Your responses must be accurate, well-structured, and properly cited.`;
+            
+            const verbosityInstructions = {
+                'concise': `
+Response Guidelines:
+- Provide thorough, complete answers (aim for 150-300 words for typical questions)
+- Include relevant details and explanations to fully address the question
+- Use paragraphs to organize complex answers
+- Don't be overly brief - ensure the user gets a comprehensive understanding`,
+                'detailed': `
+Response Guidelines:
+- Provide focused, well-organized answers (aim for 150-300 words for typical questions)
+- Include key details without excessive elaboration
+- Be direct and get to the point while remaining helpful
+- Avoid unnecessary filler or repetition`,
+                'balanced': `
+Response Guidelines:
+- Provide clear, comprehensive answers (aim for 150-300 words for typical questions)
+- Balance thoroughness with clarity
+- Include relevant context and explanations
+- Structure longer responses with clear organization`
+            };
+
+            const citationInstructions = `
+Citation Requirements:
+- You MUST cite sources using [1], [2], etc. format
+- Place citations at the end of each claim or paragraph that uses that source
+- Multiple sources can be cited together: [1][3]
+- Every factual claim must have a citation
+- If information isn't in the sources, say "Based on the provided documents, I cannot find information about..."`;
+
+            const formatInstructions = `
+Formatting:
+- Use **bold** for key terms or important points
+- Use bullet points or numbered lists for multiple items
+- Start with a direct answer, then provide supporting details
+- End with a brief summary if the answer is complex`;
+
+            return `${baseInstructions}
+${verbosityInstructions[verbosityHint] || verbosityInstructions['balanced']}
+${citationInstructions}
+${formatInstructions}
+
+You have access to ${numSources} source chunks. Use them to answer accurately.`;
+        }
+
+        // Build prompt for REASONING models (GPT-5/o1/o3 series) - simpler, more direct
+        function buildReasoningPrompt(context, question, numSources) {
+            // Reasoning models work better with direct, simple instructions
+            // They tend to over-analyze complex prompts
+            return `You are answering a question using ${numSources} source documents provided below.
+
+IMPORTANT: The answer IS in the sources. Read them carefully and extract the relevant information.
+
+SOURCES:
+${context}
+
+---
+
+QUESTION: ${question}
+
+INSTRUCTIONS:
+1. Find the answer in the sources above
+2. Give a direct, clear answer (150-300 words)
+3. Cite sources using [1], [2], etc. after each fact
+4. Use **bold** for key terms
+5. If truly not found, say so - but check carefully first
+
+Answer:`;
+        }
+
+        function buildUserPrompt(context, question) {
+            return `SOURCE DOCUMENTS:
+${context}
+
+---
+
+USER QUESTION: ${question}
+
+Please provide a well-cited answer based on the source documents above.`;
+        }
+
+        async function sendMessage() {
+            const text = els.userInput.value.trim();
+            if (!text) return;
+            if (!state.apiKey) return showStatus('Set API Key first', 'error');
+            if (!state.chunks.length) return showStatus('No documents indexed', 'error');
+
+            addMessage('user', text);
+            els.userInput.value = '';
+
+            try {
+                // Search
+                const queryEmb = (await generateEmbeddings([text], state.embeddingModel))[0];
+                const scores = state.chunks.map(c => ({
+                    chunk: c,
+                    score: cosineSimilarity(queryEmb, c.embedding)
+                })).sort((a, b) => b.score - a.score);
+
+                // Filter by score threshold, then apply topK for initial retrieval
+                const filteredByScore = scores.filter(s => s.score >= state.scoreThreshold);
+                const retrievedChunks = filteredByScore.length > 0 
+                    ? filteredByScore.slice(0, state.topK) 
+                    : scores.slice(0, state.topK);
+                
+                // Apply maxContextSections to limit what's actually sent to the AI
+                // topK = how many to retrieve/search, maxContextSections = how many to use in prompt
+                const topChunks = retrievedChunks
+                    .slice(0, Math.min(state.maxContextSections, retrievedChunks.length))
+                    .map(s => s.chunk);
+                
+                updateSources(topChunks);
+
+                // Get model-specific configuration
+                const modelConfig = getModelConfig(state.chatModel);
+                
+                // Generate context with clear formatting
+                const context = topChunks.map((c, i) => 
+                    `[SOURCE ${i + 1}] File: ${c.source}${c.page ? `, Page ${c.page}` : ''}\n"""\n${c.text}\n"""`
+                ).join('\n\n');
+                
+                // Determine verbosity hint: use user override if not 'auto', otherwise model default
+                const verbosityHint = (state.responseStyle && state.responseStyle !== 'auto') 
+                    ? state.responseStyle 
+                    : (modelConfig.verbosityHint || 'balanced');
+                
+                // Build optimized prompts
+                const systemPrompt = buildSystemPrompt(verbosityHint, topChunks.length);
+                const userPrompt = buildUserPrompt(context, text);
+
+                const msgId = addMessage('assistant', 'Thinking...');
+
+                // Build payload based on model type
+                let payload;
+                
+                if (modelConfig.isReasoning) {
+                    // GPT-5 / o1 / o3 series: Reasoning models
+                    // - Use max_completion_tokens (not max_tokens)
+                    // - Don't support temperature, top_p, frequency_penalty, presence_penalty
+                    // - Use simplified, direct prompt optimized for reasoning models
+                    const reasoningPrompt = buildReasoningPrompt(context, text, topChunks.length);
+                    
+                    payload = {
+                        model: state.chatModel,
+                        messages: [
+                            { role: 'user', content: reasoningPrompt }
+                        ],
+                        max_completion_tokens: modelConfig.maxTokens,
+                        stream: true
+                    };
+                } else {
+                    // GPT-4o series: Standard models
+                    // - Use max_tokens
+                    // - Support all sampling parameters
+                    const effectiveTemp = Math.min(1.0, Math.max(0, state.temperature * (modelConfig.tempMultiplier || 1.0)));
+                    
+                    payload = {
+                        model: state.chatModel,
                         messages: [
                             { role: 'system', content: systemPrompt },
                             { role: 'user', content: userPrompt }
                         ],
-                        temperature: state.temperature,
+                        temperature: effectiveTemp,
+                        max_tokens: modelConfig.maxTokens,
+                        top_p: 0.9,
+                        frequency_penalty: 0.1,
+                        presence_penalty: 0.1,
                         stream: true
-                    })
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error?.message || 'Failed to get response');
+                    };
                 }
 
-                const reader = response.body.getReader();
+                const res = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${state.apiKey}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                // Handle API errors
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({}));
+                    const errorMsg = errorData.error?.message || `API Error: ${res.status}`;
+                    console.error('OpenAI API Error:', errorData);
+                    updateMessage(msgId, `Error: ${errorMsg}`);
+                    return;
+                }
+
+                const reader = res.body.getReader();
                 const decoder = new TextDecoder();
-                let buffer = '';
-                let fullResponse = '';
+                let fullText = '';
 
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-
-                    buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop();
-
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
                     for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const data = line.slice(6);
-                            if (data === '[DONE]') continue;
+                        if (line.startsWith('data: ') && line !== 'data: [DONE]') {
                             try {
-                                const json = JSON.parse(data);
+                                const json = JSON.parse(line.slice(6));
                                 const content = json.choices[0]?.delta?.content || '';
-                                if (content) {
-                                    fullResponse += content;
-                                    updateMessageContent(messageId, fullResponse);
-                                }
-                            } catch (e) {
-                                // Skip invalid JSON
-                            }
+                                fullText += content;
+                                updateMessage(msgId, fullText);
+                            } catch (e) { }
                         }
                     }
                 }
 
-                state.chatHistory.push([question, fullResponse]);
-            } catch (error) {
-                updateMessageContent(messageId, '⚠️ Error: ' + error.message);
-                throw error;
-            }
-        }
-
-        function addMessageToChat(role, content) {
-            const chatbox = document.getElementById('chatbox');
-            if (chatbox.children.length === 1 && chatbox.children[0].style.textAlign === 'center') {
-                chatbox.innerHTML = '';
-            }
-
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${role}`;
-            const messageId = 'msg-' + Date.now();
-            messageDiv.id = messageId;
-
-            const header = document.createElement('div');
-            header.className = 'message-header';
-            header.textContent = role === 'user' ? 'You' : 'Assistant';
-
-            const contentDiv = document.createElement('div');
-            contentDiv.className = 'message-content';
-            contentDiv.innerHTML = formatMarkdown(content);
-
-            messageDiv.appendChild(header);
-            messageDiv.appendChild(contentDiv);
-            chatbox.appendChild(messageDiv);
-            chatbox.scrollTop = chatbox.scrollHeight;
-
-            return messageId;
-        }
-
-        function updateMessageContent(messageId, content) {
-            const messageDiv = document.getElementById(messageId);
-            if (messageDiv) {
-                const contentDiv = messageDiv.querySelector('.message-content');
-                if (contentDiv) {
-                    contentDiv.innerHTML = formatMarkdown(content);
-                    document.getElementById('chatbox').scrollTop = document.getElementById('chatbox').scrollHeight;
-                }
-            }
-        }
-
-        function formatMarkdown(text) {
-            // Remove any table markdown (prevent tables from being displayed)
-            // Replace table syntax with plain text lists
-            text = text.replace(/\|(.+)\|/g, (match, content) => {
-                // Convert table rows to bullet points
-                const cells = content.split('|').filter(c => c.trim());
-                return '• ' + cells.join(' | ') + '<br>';
-            });
-            
-            // Simple markdown formatting
-            text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-            text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
-            text = text.replace(/`(.+?)`/g, '<code>$1</code>');
-            text = text.replace(/\n/g, '<br>');
-            return text;
-        }
-
-        function updateAnswerSources(chunks) {
-            const sourcesEl = document.getElementById('answerSources');
-            if (chunks.length === 0) {
-                sourcesEl.textContent = 'No sources for this answer.';
-                return;
-            }
-            
-            // Debug: Log first chunk to see its structure
-            if (chunks.length > 0) {
-                console.log('First chunk structure:', {
-                    source: chunks[0].source,
-                    page: chunks[0].page,
-                    hasPage: 'page' in chunks[0],
-                    pageType: typeof chunks[0].page,
-                    allKeys: Object.keys(chunks[0])
-                });
-            }
-            
-            const sources = chunks.map((chunk, idx) => {
-                // Check if page exists and is a valid number
-                let pageNum = null;
-                
-                // Try multiple ways to get the page number
-                if ('page' in chunk) {
-                    const pageValue = chunk.page;
-                    if (pageValue !== null && pageValue !== undefined && pageValue !== '') {
-                        const numPage = Number(pageValue);
-                        if (!isNaN(numPage) && numPage > 0 && numPage < 100000) {
-                            pageNum = Math.floor(numPage);
-                        }
+                // Update history with full text
+                if (state.currentProject) {
+                    const history = state.currentProject.chatHistory;
+                    if (history && history.length > 0) {
+                        history[history.length - 1].content = fullText;
+                        saveProjectToStorage(state.currentProject);
                     }
                 }
-                
-                // Always show page if available, otherwise show document only
-                const pageInfo = pageNum !== null ? ` (page ${pageNum})` : '';
-                return `[${idx + 1}] ${chunk.source}${pageInfo}`;
-            }).join('<br>');
-            sourcesEl.innerHTML = sources;
-        }
 
-        function updateIndexedDocuments() {
-            const docsEl = document.getElementById('indexedDocuments');
-            if (!state.currentProject || state.currentProject.files.length === 0) {
-                docsEl.textContent = 'No documents indexed yet.';
-                return;
+            } catch (e) {
+                addMessage('assistant', 'Error: ' + e.message);
             }
-            const files = state.currentProject.files.map(file => `• ${file}`).join('<br>');
-            docsEl.innerHTML = files;
         }
 
-        function clearChat() {
-            document.getElementById('chatbox').innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">No messages yet. Upload documents and ask questions!</div>';
-            state.chatHistory = [];
+        function renderMessageToUI(role, text) {
+            const div = document.createElement('div');
+            div.className = `message ${role}`;
+            const id = 'msg-' + Date.now() + Math.random();
+            div.id = id;
+
+            div.innerHTML = `
+                <div class="avatar">${role === 'user' ? '👤' : '🤖'}</div>
+                <div class="message-content">${formatMarkdown(text)}</div>
+            `;
+
+            els.chatbox.appendChild(div);
+            els.chatbox.scrollTop = els.chatbox.scrollHeight;
+            return id;
+        }
+
+        function addMessage(role, text) {
+            const id = renderMessageToUI(role, text);
+
+            // Save to history
+            if (state.currentProject) {
+                if (!state.currentProject.chatHistory) state.currentProject.chatHistory = [];
+                state.currentProject.chatHistory.push({ role, content: text, timestamp: Date.now() });
+                saveProjectToStorage(state.currentProject);
+            }
+            return id;
+        }
+
+        function updateMessage(id, text) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.querySelector('.message-content').innerHTML = formatMarkdown(text);
+                els.chatbox.scrollTop = els.chatbox.scrollHeight;
+            }
+        }
+
+        async function clearChat() {
+            if (!state.currentProject) return;
+            if (confirm('Are you sure you want to clear the chat history?')) {
+                state.currentProject.chatHistory = [];
+                await saveProjectToStorage(state.currentProject);
+                els.chatbox.innerHTML = '';
+                renderWelcomeMessage();
+                showStatus('Chat history cleared', 'success');
+            }
         }
 
         async function clearKnowledge() {
-            if (!state.currentProject) {
-                showStatus('⚠️ No project selected.', 'error');
-                return;
+            if (!state.currentProject) return showStatus('No project selected', 'error');
+            if (confirm(`Are you sure you want to delete ALL data for "${state.currentProject.displayName}"?\n\nThis will remove:\n- All uploaded documents\n- All embeddings\n- Chat history\n\nThis cannot be undone.`)) {
+                // Clear chunks from state and storage
+                state.chunks = [];
+                await saveChunksToStorage(state.currentProject.name, []);
+                
+                // Reset project data
+                state.currentProject.files = [];
+                state.currentProject.chunks = 0;
+                state.currentProject.chatHistory = [];
+                await saveProjectToStorage(state.currentProject);
+                
+                // Reset UI
+                els.chatbox.innerHTML = '';
+                renderWelcomeMessage();
+                document.getElementById('answerSources').innerHTML = `
+                    <div style="color: var(--text-light); text-align: center; margin-top: 40px;">
+                        Citations will appear here after you ask a question.
+                    </div>`;
+                
+                showStatus('Project data cleared', 'success');
             }
-            if (!confirm('Are you sure you want to clear all knowledge for this project?')) {
-                return;
-            }
-            state.chunks = [];
-            state.currentProject.files = [];
-            state.currentProject.chunks = 0;
-            await saveProjectToStorage(state.currentProject);
-            await saveChunksToStorage(state.currentProject.name, []);
-            updateProjectStatus();
-            updateIndexedDocuments();
-            showStatus('✅ Knowledge base cleared.', 'success');
         }
 
-        // Storage Functions (IndexedDB)
-        let db = null;
+        function updateSources(chunks) {
+            const html = chunks.map((c, i) => `
+                <div class="source-card" onclick="openSourceModal(${i})" style="cursor: pointer; transition: border-color 0.2s;">
+                    <div class="source-title" style="margin-bottom: 0;">[${i + 1}] ${c.source} ${c.page ? `(p. ${c.page})` : ''}</div>
+                </div>
+            `).join('');
+            document.getElementById('answerSources').innerHTML = html;
 
-        function initDB() {
+            // Store current chunks for modal access
+            state.currentResponseChunks = chunks;
+
+            if (els.sourcesPanel.classList.contains('hidden')) toggleSources();
+        }
+
+        function openSourceModal(index) {
+            const chunk = state.currentResponseChunks[index];
+            if (!chunk) return;
+
+            document.getElementById('modalTitle').textContent = `${chunk.source} ${chunk.page ? `(Page ${chunk.page})` : ''}`;
+            document.getElementById('modalBody').textContent = chunk.text;
+            document.getElementById('sourceModal').classList.add('active');
+        }
+
+        function closeSourceModal() {
+            document.getElementById('sourceModal').classList.remove('active');
+        }
+
+        function formatMarkdown(text) {
+            let formatted = text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                .replace(/\n/g, '<br>');
+
+            // Make citations clickable: [1] -> <span ...>[1]</span>
+            formatted = formatted.replace(/\[(\d+)\]/g, (match, num) => {
+                return `<span class="citation-link" onclick="openSourceModal(${parseInt(num) - 1})">[${num}]</span>`;
+            });
+
+            return formatted;
+        }
+
+        // Storage (IndexedDB) - Simplified wrapper
+        const dbName = 'RAGAssistantDB';
+        function getDB() {
             return new Promise((resolve, reject) => {
-                const request = indexedDB.open('RAGAssistantDB', 1);
-                request.onerror = () => reject(request.error);
-                request.onsuccess = () => {
-                    db = request.result;
-                    resolve(db);
-                };
-                request.onupgradeneeded = (event) => {
-                    const db = event.target.result;
-                    if (!db.objectStoreNames.contains('projects')) {
-                        db.createObjectStore('projects', { keyPath: 'name' });
-                    }
+                const req = indexedDB.open(dbName, 1);
+                req.onupgradeneeded = e => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains('projects')) db.createObjectStore('projects', { keyPath: 'name' });
                     if (!db.objectStoreNames.contains('chunks')) {
-                        const chunksStore = db.createObjectStore('chunks', { keyPath: 'id' });
-                        chunksStore.createIndex('project', 'project', { unique: false });
+                        const store = db.createObjectStore('chunks', { keyPath: 'id' });
+                        store.createIndex('project', 'project', { unique: false });
                     }
                 };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
             });
         }
 
-        async function getDB() {
-            if (!db) {
-                await initDB();
-            }
-            return db;
-        }
-
-        async function saveProjectToStorage(project) {
-            const database = await getDB();
-            return new Promise((resolve, reject) => {
-                const transaction = database.transaction(['projects'], 'readwrite');
-                const store = transaction.objectStore('projects');
-                const request = store.put(project);
-                request.onsuccess = () => resolve();
-                request.onerror = () => reject(request.error);
-            });
-        }
-
-        async function getProjectFromStorage(name) {
-            const database = await getDB();
-            return new Promise((resolve, reject) => {
-                const transaction = database.transaction(['projects'], 'readonly');
-                const store = transaction.objectStore('projects');
-                const request = store.get(name);
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
-            });
+        async function saveProjectToStorage(p) {
+            const db = await getDB();
+            return new Promise(r => db.transaction('projects', 'readwrite').objectStore('projects').put(p).onsuccess = r);
         }
 
         async function getProjectsFromStorage() {
-            const database = await getDB();
-            return new Promise((resolve, reject) => {
-                const transaction = database.transaction(['projects'], 'readonly');
-                const store = transaction.objectStore('projects');
-                const request = store.getAll();
-                request.onsuccess = () => resolve(request.result || []);
-                request.onerror = () => reject(request.error);
-            });
+            const db = await getDB();
+            return new Promise(r => db.transaction('projects', 'readonly').objectStore('projects').getAll().onsuccess = e => r(e.target.result || []));
         }
 
-        async function saveChunksToStorage(projectName, chunks) {
-            const database = await getDB();
-            return new Promise((resolve, reject) => {
-                const transaction = database.transaction(['chunks'], 'readwrite');
-                const store = transaction.objectStore('chunks');
-                
-                // Delete existing chunks for this project
-                const index = store.index('project');
-                const range = IDBKeyRange.only(projectName);
-                index.openCursor(range).onsuccess = (event) => {
-                    const cursor = event.target.result;
-                    if (cursor) {
-                        store.delete(cursor.primaryKey);
-                        cursor.continue();
-                    } else {
-                        // All existing chunks deleted, now add new ones
-                        chunks.forEach(chunk => {
-                            store.put(chunk);
-                        });
-                        resolve();
-                    }
-                };
-            });
+        async function getProjectFromStorage(name) {
+            const db = await getDB();
+            return new Promise(r => db.transaction('projects', 'readonly').objectStore('projects').get(name).onsuccess = e => r(e.target.result));
         }
 
-        async function getChunksFromStorage(projectName) {
-            const database = await getDB();
-            return new Promise((resolve, reject) => {
-                const transaction = database.transaction(['chunks'], 'readonly');
-                const store = transaction.objectStore('chunks');
-                const index = store.index('project');
-                const range = IDBKeyRange.only(projectName);
-                const request = index.getAll(range);
-                request.onsuccess = () => {
-                    const chunks = request.result || [];
-                    // Ensure all chunks have a page property (even if null)
-                    chunks.forEach(chunk => {
-                        if (!('page' in chunk)) {
-                            chunk.page = null;
-                        }
-                    });
-                    // Debug: Log first chunk to verify structure
-                    if (chunks.length > 0) {
-                        console.log('Loaded chunk from storage:', {
-                            source: chunks[0].source,
-                            page: chunks[0].page,
-                            hasPage: 'page' in chunks[0],
-                            allKeys: Object.keys(chunks[0])
-                        });
-                    }
-                    resolve(chunks);
-                };
-                request.onerror = () => reject(request.error);
-            });
+        async function saveChunksToStorage(pName, chunks) {
+            const db = await getDB();
+            const tx = db.transaction('chunks', 'readwrite');
+            const store = tx.objectStore('chunks');
+            // Delete old
+            const index = store.index('project');
+            const req = index.openCursor(IDBKeyRange.only(pName));
+            req.onsuccess = e => {
+                const cursor = e.target.result;
+                if (cursor) { cursor.delete(); cursor.continue(); }
+                else { chunks.forEach(c => store.put(c)); }
+            };
+            return new Promise(r => tx.oncomplete = r);
         }
 
-        function generateId() {
-            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        async function getChunksFromStorage(pName) {
+            const db = await getDB();
+            return new Promise(r => {
+                const store = db.transaction('chunks', 'readonly').objectStore('chunks');
+                store.index('project').getAll(IDBKeyRange.only(pName)).onsuccess = e => r(e.target.result || []);
+            });
         }
 
         function loadSettings() {
             const saved = localStorage.getItem('rag_settings');
             if (saved) {
                 try {
-                    const settings = JSON.parse(saved);
-                    if (settings.chunkSize) document.getElementById('chunkSize').value = settings.chunkSize;
-                    if (settings.chunkOverlap) document.getElementById('chunkOverlap').value = settings.chunkOverlap;
-                    if (settings.topK) document.getElementById('topK').value = settings.topK;
-                    if (settings.maxContextSections) document.getElementById('maxContextSections').value = settings.maxContextSections;
-                    if (settings.scoreThreshold) {
-                        document.getElementById('scoreThreshold').value = settings.scoreThreshold;
-                        document.getElementById('scoreThresholdValue').textContent = settings.scoreThreshold;
-                    }
-                    if (settings.temperature) {
-                        document.getElementById('temperature').value = settings.temperature;
-                        document.getElementById('temperatureValue').textContent = settings.temperature;
-                    }
-                    if (settings.embeddingModel) document.getElementById('embeddingModel').value = settings.embeddingModel;
-                } catch (e) {
-                    console.error('Error loading settings:', e);
-                }
+                    const s = JSON.parse(saved);
+                    if (s.chunkSize) document.getElementById('chunkSize').value = s.chunkSize;
+                    if (s.chunkOverlap) document.getElementById('chunkOverlap').value = s.chunkOverlap;
+                    if (s.topK) document.getElementById('topK').value = s.topK;
+                    if (s.maxContextSections) document.getElementById('maxContextSections').value = s.maxContextSections;
+                    if (s.temperature !== undefined) document.getElementById('temperature').value = s.temperature;
+                    if (s.scoreThreshold) document.getElementById('scoreThreshold').value = s.scoreThreshold;
+                    if (s.embeddingModel) document.getElementById('embeddingModel').value = s.embeddingModel;
+                    if (s.chatModel) document.getElementById('chatModel').value = s.chatModel;
+                    if (s.responseStyle) document.getElementById('responseStyle').value = s.responseStyle;
+
+                    // Update state
+                    Object.assign(state, s);
+                } catch (e) { console.error(e); }
             }
         }
 
-        // Save settings on change
-        ['chunkSize', 'chunkOverlap', 'topK', 'maxContextSections', 'scoreThreshold', 'temperature', 'embeddingModel'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.addEventListener('change', () => {
-                    const settings = {
-                        chunkSize: parseInt(document.getElementById('chunkSize').value),
-                        chunkOverlap: parseInt(document.getElementById('chunkOverlap').value),
-                        topK: parseInt(document.getElementById('topK').value),
-                        maxContextSections: parseInt(document.getElementById('maxContextSections').value),
-                        scoreThreshold: parseFloat(document.getElementById('scoreThreshold').value),
-                        temperature: parseFloat(document.getElementById('temperature').value),
-                        embeddingModel: document.getElementById('embeddingModel').value
-                    };
-                    localStorage.setItem('rag_settings', JSON.stringify(settings));
-                });
-            }
-        });
+        function saveSettings() {
+            const settings = {
+                chunkSize: parseInt(document.getElementById('chunkSize').value),
+                chunkOverlap: parseInt(document.getElementById('chunkOverlap').value),
+                topK: parseInt(document.getElementById('topK').value),
+                maxContextSections: parseInt(document.getElementById('maxContextSections').value),
+                temperature: parseFloat(document.getElementById('temperature').value),
+                scoreThreshold: parseFloat(document.getElementById('scoreThreshold').value),
+                embeddingModel: document.getElementById('embeddingModel').value,
+                chatModel: document.getElementById('chatModel').value,
+                responseStyle: document.getElementById('responseStyle').value
+            };
+            localStorage.setItem('rag_settings', JSON.stringify(settings));
+            Object.assign(state, settings);
+        }
     </script>
 </body>
+
 </html>
