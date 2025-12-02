@@ -547,6 +547,198 @@
             padding: 40px 20px;
         }
 
+        /* Help Modal */
+        .help-modal {
+            max-width: 700px;
+            max-height: 85vh;
+        }
+
+        .help-content {
+            padding: 0;
+            white-space: normal;
+        }
+
+        .help-section {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .help-section:last-child {
+            border-bottom: none;
+        }
+
+        .help-section h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .help-section p {
+            color: #475569;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+
+        .help-section p:last-child {
+            margin-bottom: 0;
+        }
+
+        .help-steps {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .help-steps li {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .help-steps li:last-child {
+            border-bottom: none;
+        }
+
+        .step-number {
+            width: 24px;
+            height: 24px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-content strong {
+            color: #1e293b;
+        }
+
+        .step-content span {
+            color: #64748b;
+            font-size: 0.85rem;
+        }
+
+        .benefit-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .benefit-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .benefit-card .icon {
+            font-size: 1.5rem;
+            margin-bottom: 6px;
+        }
+
+        .benefit-card h5 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+
+        .benefit-card p {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .model-comparison {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin-top: 12px;
+        }
+
+        .model-comparison th,
+        .model-comparison td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .model-comparison th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .model-comparison td {
+            color: #475569;
+        }
+
+        .help-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .help-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .help-footer {
+            padding: 16px 24px;
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .help-footer label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: #64748b;
+            cursor: pointer;
+        }
+
+        .help-footer input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 600px) {
+            .benefit-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         /* Advanced Settings */
         details {
             margin-top: 12px;
@@ -631,6 +823,9 @@
         <div class="sidebar-header">
             <span>📚</span>
             <h1>RAG Assistant</h1>
+            <button onclick="openHelpModal()" class="help-btn" title="Help & Instructions" style="margin-left: auto;">
+                ?
+            </button>
         </div>
 
         <div class="sidebar-content">
@@ -910,6 +1105,135 @@
         style="position: fixed; top: 20px; right: 20px; padding: 12px 24px; border-radius: 8px; color: white; font-weight: 500; z-index: 100; animation: slideIn 0.3s ease;">
     </div>
 
+    <!-- Help Modal -->
+    <div id="helpModal" class="modal-overlay">
+        <div class="modal-content help-modal">
+            <div class="modal-header">
+                <h3 style="font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                    📚 Welcome to RAG Assistant
+                </h3>
+                <button onclick="closeHelpModal()"
+                    style="background:none; border:none; cursor:pointer; font-size: 1.5rem; color: #64748b;">×</button>
+            </div>
+            <div class="modal-body help-content">
+                <!-- What is RAG -->
+                <div class="help-section">
+                    <h4>🤖 What is RAG?</h4>
+                    <p>
+                        <strong>RAG (Retrieval-Augmented Generation)</strong> is an AI technique that combines the power of 
+                        large language models with your own documents. Instead of relying only on the AI's training data, 
+                        RAG retrieves relevant information from YOUR documents to generate accurate, sourced answers.
+                    </p>
+                    <div class="benefit-grid">
+                        <div class="benefit-card">
+                            <div class="icon">🎯</div>
+                            <h5>Accurate Answers</h5>
+                            <p>Responses are based on your actual documents, not general knowledge</p>
+                        </div>
+                        <div class="benefit-card">
+                            <div class="icon">📑</div>
+                            <h5>Source Citations</h5>
+                            <p>Every answer includes citations so you can verify the information</p>
+                        </div>
+                        <div class="benefit-card">
+                            <div class="icon">🔒</div>
+                            <h5>Your Data, Your Control</h5>
+                            <p>Documents are processed locally in your browser</p>
+                        </div>
+                        <div class="benefit-card">
+                            <div class="icon">⚡</div>
+                            <h5>Instant Search</h5>
+                            <p>Find information across hundreds of pages in seconds</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Getting Started -->
+                <div class="help-section">
+                    <h4>🚀 Getting Started</h4>
+                    <ol class="help-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <div class="step-content">
+                                <strong>Set Your API Key</strong><br>
+                                <span>Click Settings → Enter your OpenAI API key (starts with sk-...)</span>
+                            </div>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <div class="step-content">
+                                <strong>Create a Project</strong><br>
+                                <span>Click "+ New Project" and give it a name (e.g., "Research Papers")</span>
+                            </div>
+                        </li>
+                        <li>
+                            <span class="step-number">3</span>
+                            <div class="step-content">
+                                <strong>Upload Documents</strong><br>
+                                <span>Select PDF, DOCX, TXT, MD, or CSV files → Click "Process Documents"</span>
+                            </div>
+                        </li>
+                        <li>
+                            <span class="step-number">4</span>
+                            <div class="step-content">
+                                <strong>Ask Questions!</strong><br>
+                                <span>Type your question and get answers with source citations</span>
+                            </div>
+                        </li>
+                    </ol>
+                </div>
+
+                <!-- Model Selection -->
+                <div class="help-section">
+                    <h4>🧠 Choosing the Right Model</h4>
+                    <p>Different models are optimized for different tasks:</p>
+                    <table class="model-comparison">
+                        <tr>
+                            <th>Model</th>
+                            <th>Best For</th>
+                            <th>Speed</th>
+                        </tr>
+                        <tr>
+                            <td><strong>GPT-4o Mini</strong> ⭐</td>
+                            <td>Document Q&A (Recommended)</td>
+                            <td>Fast</td>
+                        </tr>
+                        <tr>
+                            <td><strong>GPT-4o</strong></td>
+                            <td>Complex analysis, detailed answers</td>
+                            <td>Medium</td>
+                        </tr>
+                        <tr>
+                            <td><strong>GPT-5 Series</strong></td>
+                            <td>Multi-step reasoning, math, logic</td>
+                            <td>Slower</td>
+                        </tr>
+                    </table>
+                    <p style="margin-top: 12px; font-size: 0.85rem; color: #64748b;">
+                        💡 <strong>Tip:</strong> For most document Q&A tasks, GPT-4o Mini offers the best balance of speed, accuracy, and cost.
+                    </p>
+                </div>
+
+                <!-- Tips -->
+                <div class="help-section">
+                    <h4>💡 Pro Tips</h4>
+                    <p>• <strong>Be specific</strong> - Ask focused questions for better answers</p>
+                    <p>• <strong>Click citations</strong> - Click [1], [2], etc. to see the source text</p>
+                    <p>• <strong>Adjust chunk size</strong> - Smaller chunks (1000) for precise search, larger (2000) for more context</p>
+                    <p>• <strong>Lower temperature</strong> - Use 0.1-0.3 for factual answers, higher for creative tasks</p>
+                    <p>• <strong>Multiple projects</strong> - Create separate projects for different document sets</p>
+                </div>
+            </div>
+            <div class="help-footer">
+                <label>
+                    <input type="checkbox" id="dontShowAgain" onchange="saveDontShowAgain()">
+                    Don't show this on startup
+                </label>
+                <button onclick="closeHelpModal()" class="btn btn-primary">Get Started</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
@@ -951,7 +1275,39 @@
             if (state.apiKey) document.getElementById('apiKey').value = state.apiKey;
             loadProjects();
             loadSettings();
+            
+            // Show help modal on first launch
+            checkFirstLaunch();
         });
+
+        // Help Modal Functions
+        function checkFirstLaunch() {
+            const hideHelp = localStorage.getItem('rag_hide_help_on_startup');
+            if (!hideHelp) {
+                // First launch or user hasn't checked "don't show again"
+                openHelpModal();
+            }
+        }
+
+        function openHelpModal() {
+            document.getElementById('helpModal').classList.add('active');
+            // Sync checkbox with stored preference
+            const hideHelp = localStorage.getItem('rag_hide_help_on_startup');
+            document.getElementById('dontShowAgain').checked = hideHelp === 'true';
+        }
+
+        function closeHelpModal() {
+            document.getElementById('helpModal').classList.remove('active');
+        }
+
+        function saveDontShowAgain() {
+            const checked = document.getElementById('dontShowAgain').checked;
+            if (checked) {
+                localStorage.setItem('rag_hide_help_on_startup', 'true');
+            } else {
+                localStorage.removeItem('rag_hide_help_on_startup');
+            }
+        }
 
         // UI Functions
         function toggleSettings() {
